@@ -6,8 +6,9 @@ struct ExpandedView: View {
     @ObservedObject var timer: CountdownController
     @ObservedObject var focus: FocusController
 
-    // Optional. Everything local runs without it. Keychain before public builds.
-    @AppStorage("anthropicKey") private var apiKey = ""
+    // Optional. Everything local runs without it. Lives in the Keychain;
+    // loaded when the settings pane appears, saved on submit/dismiss.
+    @State private var apiKey = ""
 
     @AppStorage("expandedSizePreset") private var sizePreset = "compact"
     @AppStorage("expandOnHover") private var expandOnHover = true
@@ -238,6 +239,7 @@ struct ExpandedView: View {
                 }
                 settingsSection("Claude key") {
                     SecureField("sk-ant-...", text: $apiKey)
+                        .onSubmit { KeychainStore.write(apiKey, account: "anthropicKey") }
                         .textFieldStyle(.plain)
                         .font(.system(size: 12, design: .monospaced))
                         .padding(8)
@@ -256,6 +258,8 @@ struct ExpandedView: View {
             }
             .padding(.bottom, 8)
         }
+        .onAppear { apiKey = KeychainStore.read("anthropicKey") ?? "" }
+        .onDisappear { KeychainStore.write(apiKey, account: "anthropicKey") }
     }
 
     private func settingsSection(

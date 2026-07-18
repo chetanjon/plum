@@ -79,12 +79,17 @@ final class MusicController: ObservableObject {
         refresh()
     }
 
+    /// One reset path for every "there is nothing playing" branch.
+    private func clearNowPlaying() {
+        nowPlaying = nil
+        artwork = nil
+        artworkKey = nil
+        updateAccent(from: nil)
+    }
+
     private func refresh() {
         guard let app = activeApp() else {
-            nowPlaying = nil
-            artwork = nil
-            artworkKey = nil
-            updateAccent(from: nil)
+            clearNowPlaying()
             return
         }
         // Spotify reports duration in milliseconds, Music in seconds.
@@ -120,15 +125,12 @@ final class MusicController: ObservableObject {
         end tell
         """
         guard let output = runScript(source) else {
-            nowPlaying = nil
+            clearNowPlaying()
             return
         }
         let parts = output.components(separatedBy: separator)
         guard parts.count >= 8, !parts[1].isEmpty else {
-            nowPlaying = nil
-            artwork = nil
-            artworkKey = nil
-            updateAccent(from: nil)
+            clearNowPlaying()
             return
         }
         nowPlaying = NowPlaying(
@@ -156,6 +158,7 @@ final class MusicController: ObservableObject {
                 updateAccent(from: nil)
                 return
             }
+            // (Track info stays; only the art is unavailable.)
             Task { [weak self] in
                 let image = (try? await URLSession.shared.data(from: url))
                     .flatMap { NSImage(data: $0.0) }

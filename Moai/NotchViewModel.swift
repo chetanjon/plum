@@ -60,6 +60,12 @@ final class NotchViewModel: ObservableObject {
     /// Set by the window controller so the panel can grab key focus.
     var onExpandChange: ((Bool) -> Void)?
 
+    init() {
+        // Before any view can read the key: legacy plaintext storage
+        // moves into the Keychain once.
+        KeychainStore.migrateFromDefaults(key: "anthropicKey", account: "anthropicKey")
+    }
+
     func start() {
         music.start()
         clipboard.start()
@@ -168,7 +174,7 @@ final class NotchViewModel: ObservableObject {
             }
 
             // Beyond local verbs, the optional key takes over.
-            let key = UserDefaults.standard.string(forKey: "anthropicKey") ?? ""
+            let key = KeychainStore.read("anthropicKey") ?? ""
             guard !key.isEmpty else {
                 answer = "That one needs the optional key. Reminders, notes, timers, focus, and music all work without it. Gear icon, top right."
                 return

@@ -11,14 +11,14 @@ struct HeaderBar: View {
         HStack(spacing: Theme.Space.xs) {
             if model.pane == .none {
                 Text("Moai")
-                    .font(Theme.Fonts.brand)
+                    .font(Theme.Fonts.title)
                     .foregroundStyle(Theme.textPrimary)
             } else {
                 HoverGlyphButton(symbol: "chevron.left", tint: Theme.textSecondary) {
                     withAnimation(Theme.Motion.content) { model.pane = .none }
                 }
                 Text(model.pane == .focus ? "Focus" : "Settings")
-                    .font(Theme.Fonts.brand)
+                    .font(Theme.Fonts.title)
                     .foregroundStyle(Theme.textPrimary)
             }
             Spacer()

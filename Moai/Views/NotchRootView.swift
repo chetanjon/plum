@@ -98,19 +98,8 @@ struct NotchRootView: View {
                 // switching fill *styles* between states makes SwiftUI
                 // cross-fade the whole shape (a ghosted double image)
                 // instead of morphing it.
-                ZStack {
-                    // Live blur of whatever is behind the island —
-                    // real glass, only while open (opaque black hides
-                    // it collapsed, so don't pay for it there).
-                    if model.state != .collapsed {
-                        VisualEffectBlur()
-                            .clipShape(islandShape)
-                            .transition(.opacity)
-                    }
-                    islandShape
-                        .fill(Theme.backdrop)
-                        .opacity(model.state == .collapsed ? 1 : 0.82)
-                }
+                islandShape
+                    .fill(Theme.backdrop)
                     .overlay(
                         islandShape
                             .fill(Color.black)

@@ -1,22 +1,6 @@
-import AppKit
 import SwiftUI
 
-/// Real translucency behind the expanded island: whatever sits under
-/// the notch softly bleeds through, the way system HUDs do.
-struct VisualEffectBlur: NSViewRepresentable {
-    func makeNSView(context: Context) -> NSVisualEffectView {
-        let view = NSVisualEffectView()
-        view.material = .hudWindow
-        view.blendingMode = .behindWindow
-        view.state = .active
-        return view
-    }
-
-    func updateNSView(_ view: NSVisualEffectView, context: Context) {}
-}
-
-/// The standard card treatment: a top-lit surface with soft depth —
-/// gradient fill, edge that catches light at the top, gentle drop.
+/// The standard card treatment: quiet surface fill with a faint hairline.
 private struct MoaiCard: ViewModifier {
     var radius: CGFloat
 
@@ -24,26 +8,12 @@ private struct MoaiCard: ViewModifier {
         content
             .background(
                 RoundedRectangle(cornerRadius: radius, style: .continuous)
-                    .fill(
-                        LinearGradient(
-                            colors: [Color.white.opacity(0.09), Color.white.opacity(0.04)],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                    )
+                    .fill(Theme.surface)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: radius, style: .continuous)
-                    .strokeBorder(
-                        LinearGradient(
-                            colors: [Color.white.opacity(0.14), Color.white.opacity(0.04)],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        ),
-                        lineWidth: 1
-                    )
+                    .strokeBorder(Theme.hairlineFaint, lineWidth: 1)
             )
-            .shadow(color: Color.black.opacity(0.25), radius: 5, y: 2)
     }
 }
 
@@ -231,15 +201,7 @@ struct ProgressRing<Center: View>: View {
                 .stroke(Color.white.opacity(trackOpacity), lineWidth: lineWidth)
             Circle()
                 .trim(from: 0, to: max(0.02, progress))
-                .stroke(
-                    AngularGradient(
-                        colors: [tint.opacity(0.55), tint],
-                        center: .center,
-                        startAngle: .degrees(-90),
-                        endAngle: .degrees(270)
-                    ),
-                    style: StrokeStyle(lineWidth: lineWidth, lineCap: .round)
-                )
+                .stroke(tint, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
                 .rotationEffect(.degrees(-90))
                 .animation(.linear(duration: 1), value: progress)
             center()
@@ -378,45 +340,6 @@ struct AuroraView: View {
                 )
             )
             .frame(width: size.width, height: size.height)
-    }
-}
-
-/// A warm empty state: tinted glyph, a line of voice, a hint —
-/// instead of a lone grey sentence floating in the dark.
-struct EmptyState: View {
-    let symbol: String
-    let title: String
-    let hint: String
-
-    @Environment(\.moaiAccent) private var accent
-
-    var body: some View {
-        VStack(spacing: Theme.Space.m) {
-            ZStack {
-                Circle()
-                    .fill(
-                        LinearGradient(
-                            colors: [accent.opacity(0.20), accent.opacity(0.08)],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                    )
-                Image(systemName: symbol)
-                    .font(Theme.Fonts.icon(.xl, weight: .medium))
-                    .foregroundStyle(accent)
-            }
-            .frame(width: 52, height: 52)
-            VStack(spacing: 2) {
-                Text(title)
-                    .font(Theme.Fonts.bodyEmphasis)
-                    .foregroundStyle(Theme.textPrimary)
-                Text(hint)
-                    .font(Theme.Fonts.body)
-                    .foregroundStyle(Theme.textHint)
-                    .multilineTextAlignment(.center)
-            }
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 

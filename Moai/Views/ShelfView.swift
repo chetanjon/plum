@@ -12,11 +12,14 @@ struct ShelfView: View {
 
     var body: some View {
         if shelf.items.isEmpty {
-            EmptyState(
-                symbol: "tray.and.arrow.down",
-                title: "The shelf is empty",
-                hint: "Drop files on the notch to stash them here."
-            )
+            VStack {
+                Spacer()
+                Text("Drop files on the notch to stash them here.")
+                    .font(Theme.Fonts.body)
+                    .foregroundStyle(Theme.textHint)
+                Spacer()
+            }
+            .frame(maxWidth: .infinity)
         } else {
             ScrollView {
                 VStack(spacing: Theme.Space.s) {

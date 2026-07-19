@@ -5,7 +5,7 @@ struct DoView: View {
     @ObservedObject var model: NotchViewModel
     @Environment(\.moaiAccent) private var accent
     @FocusState private var inputFocused: Bool
-    @AppStorage("aiProvider") private var aiProvider = "claude"
+    @AppStorage("aiProvider") private var aiProvider = ""
 
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Space.l) {
@@ -85,10 +85,12 @@ struct DoView: View {
         .overlay(Capsule().strokeBorder(accent.opacity(0.4), lineWidth: 1))
     }
 
-    /// The provider chip: which cloud brain answers non-local questions.
-    /// Tap to cycle Claude → GPT → Gemini; the choice sticks.
+    /// The provider chip: who answers. Tap to cycle through the
+    /// providers this Mac can actually use; the choice sticks.
+    /// Derives from the observed @AppStorage value — reading
+    /// UserDefaults directly here left the label stale after taps.
     private var providerChip: some View {
-        let provider = AIProvider.current
+        let provider = AIProvider(rawValue: aiProvider) ?? AIProvider.current
         return Button {
             aiProvider = provider.next.rawValue
         } label: {

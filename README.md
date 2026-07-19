@@ -82,3 +82,9 @@ Open this folder in Claude Code and paste:
 - **v1.5:** Apple Foundation Models parsing for messy phrasing (on-device LLM, still free), Messages sending, global hotkey, Keychain for the key, menu bar countdown.
 - **v2:** meeting brief before your next call, screen context, image clips, artwork via MediaRemote.
 - Launch: notarized build ($99 Apple Developer), landing page with the mockup embedded, Homebrew cask.
+
+## Audio attributions
+
+- Rain ambience: derived from ["Calm rain.wav"](https://commons.wikimedia.org/wiki/File:Calm_rain.wav) (Wikimedia Commons, CC BY-SA 4.0) — trimmed, normalized, edge-faded.
+- Cafe ambience: derived from ["Cafe ambiance.ogg"](https://commons.wikimedia.org/wiki/File:Cafe_ambiance.ogg) (Wikimedia Commons, CC0).
+- Brown/white/pink noise are synthesized in real time.

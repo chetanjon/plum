@@ -1,8 +1,9 @@
 import AVFoundation
 
-/// Generates ambience in real time with a source node. No audio files,
-/// no licensing, works offline, costs nothing. Every level change rides
-/// a per-sample gain ramp — nothing clicks, nothing jumps.
+/// Ambience with two engines: brown/white/pink are synthesized in real
+/// time (a source node, click-free gain ramps); rain and cafe are real
+/// field recordings, looped with faded edges. Everything fades —
+/// nothing clicks, nothing jumps.
 final class NoiseEngine {
     enum NoiseColor: String, CaseIterable {
         case brown
@@ -16,7 +17,12 @@ final class NoiseEngine {
     private var source: AVAudioSourceNode?
     private var current: NoiseColor = .brown
 
-    // Smoothed master gain, advanced on the render thread.
+    // Real recordings for rain / cafe
+    private var player: AVAudioPlayer?
+    private var playerColor: NoiseColor?
+    private let fileLevel: Float = 0.4
+
+    // Smoothed synth gain, advanced on the render thread.
     private var gain: Float = 0
     private var targetGain: Float = 0
 
@@ -27,66 +33,118 @@ final class NoiseEngine {
     private var pink2: Float = 0
     private var whiteLast: Float = 0
 
-    // Rain: soft wash + stochastic droplet patter + slow swells
-    private var rainLow: Float = 0
-    private var dropEnv: Float = 0
-    private var swellPhase: Double = 0
-
-    // Cafe: low murmur with a wandering babble level + rare clinks
-    private var murmurLow: Float = 0
-    private var babble: Float = 0.7
-    private var babbleTarget: Float = 0.7
-    private var babbleCounter = 0
-    private var clinkEnv: Float = 0
-    private var clinkPhase: Double = 0
-    private var clinkFreq: Double = 3000
-
     private(set) var isRunning = false
+
+    private static func fileURL(for color: NoiseColor) -> URL? {
+        switch color {
+        case .rain: return Bundle.main.url(forResource: "rain", withExtension: "m4a")
+        case .cafe: return Bundle.main.url(forResource: "cafe", withExtension: "m4a")
+        default: return nil
+        }
+    }
 
     func start(_ color: NoiseColor) {
         current = color
-        if source == nil { setup() }
-        engine.mainMixerNode.outputVolume = 0.35
-        if !engine.isRunning {
-            try? engine.start()
-        }
-        targetGain = 1
         isRunning = true
+        if Self.fileURL(for: color) != nil {
+            targetGain = 0
+            startFile(color)
+        } else {
+            stopFile(fade: 0.4)
+            if source == nil { setupSynth() }
+            engine.mainMixerNode.outputVolume = 0.35
+            if !engine.isRunning {
+                try? engine.start()
+            }
+            targetGain = 1
+        }
     }
 
     func set(_ color: NoiseColor) {
-        guard isRunning, color != current else {
+        guard isRunning else {
             current = color
             return
         }
-        // Duck, swap, rise — a hard spectrum change sounds like a glitch.
-        targetGain = 0
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) { [weak self] in
-            guard let self, self.isRunning else { return }
-            self.current = color
-            self.targetGain = 1
+        guard color != current else { return }
+        if Self.fileURL(for: color) != nil {
+            start(color)
+        } else if Self.fileURL(for: current) != nil {
+            // Recording -> synth
+            current = color
+            start(color)
+        } else {
+            // Synth -> synth: duck, swap, rise — a hard spectrum change
+            // sounds like a glitch.
+            targetGain = 0
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) { [weak self] in
+                guard let self, self.isRunning else { return }
+                self.current = color
+                self.targetGain = 1
+            }
         }
     }
 
     func pause() {
         targetGain = 0
+        player?.setVolume(0, fadeDuration: 0.5)
     }
 
     func resume() {
-        targetGain = 1
+        if Self.fileURL(for: current) != nil {
+            if player == nil {
+                startFile(current)
+            } else {
+                player?.setVolume(fileLevel, fadeDuration: 0.6)
+            }
+        } else {
+            targetGain = 1
+        }
     }
 
     func stop() {
         targetGain = 0
         isRunning = false
-        // Let the fade finish before the engine goes down.
+        stopFile(fade: 0.4)
+        // Let the synth fade finish before the engine goes down.
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak self] in
             guard let self, !self.isRunning else { return }
             self.engine.stop()
         }
     }
 
-    private func setup() {
+    // MARK: Real recordings
+
+    private func startFile(_ color: NoiseColor) {
+        if playerColor == color, let player {
+            if !player.isPlaying { player.play() }
+            player.setVolume(fileLevel, fadeDuration: 0.6)
+            return
+        }
+        stopFile(fade: 0.4)
+        guard let url = Self.fileURL(for: color),
+              let fresh = try? AVAudioPlayer(contentsOf: url)
+        else { return }
+        fresh.numberOfLoops = -1
+        fresh.volume = 0
+        fresh.play()
+        fresh.setVolume(fileLevel, fadeDuration: 0.8)
+        player = fresh
+        playerColor = color
+    }
+
+    private func stopFile(fade: TimeInterval) {
+        guard let old = player else { return }
+        old.setVolume(0, fadeDuration: fade)
+        DispatchQueue.main.asyncAfter(deadline: .now() + fade + 0.1) {
+            old.stop()
+        }
+        player = nil
+        playerColor = nil
+    }
+
+    // MARK: Synthesis
+
+    private func setupSynth() {
         let node = AVAudioSourceNode { [weak self] _, _, frameCount, audioBufferList -> OSStatus in
             guard let self else { return noErr }
             let buffers = UnsafeMutableAudioBufferListPointer(audioBufferList)
@@ -127,32 +185,8 @@ final class NoiseEngine {
         case .brown:
             brownLast = (brownLast + 0.02 * white) / 1.02
             value = brownLast * 3.2
-        case .rain:
-            rainLow += 0.22 * (white - rainLow)
-            if Float.random(in: 0...1) < 0.0007 {
-                dropEnv = min(1, dropEnv + Float.random(in: 0.3...0.8))
-            }
-            dropEnv *= 0.9992
-            swellPhase += 0.05 / 48_000
-            let swell = 0.8 + 0.2 * Float(sin(swellPhase * 2 * .pi))
-            value = (rainLow * 0.5 + white * dropEnv * 0.35) * swell
-        case .cafe:
-            murmurLow += 0.06 * (white - murmurLow)
-            babbleCounter += 1
-            if babbleCounter >= 2400 {
-                babbleCounter = 0
-                babbleTarget = Float.random(in: 0.35...1.0)
-            }
-            babble += (babbleTarget - babble) * 0.00025
-            if Float.random(in: 0...1) < 0.000008 {
-                clinkEnv = Float.random(in: 0.15...0.4)
-                clinkFreq = Double.random(in: 1800...4200)
-                clinkPhase = 0
-            }
-            clinkPhase += clinkFreq / 48_000
-            clinkEnv *= 0.9993
-            let clink = Float(sin(clinkPhase * 2 * .pi)) * clinkEnv
-            value = murmurLow * 2.6 * babble + clink * 0.5
+        case .rain, .cafe:
+            value = 0
         }
         return max(-1, min(1, value)) * gain
     }

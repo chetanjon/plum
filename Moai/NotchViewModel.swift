@@ -142,12 +142,17 @@ final class NotchViewModel: ObservableObject {
 
     func endListening() {
         guard state == .listening else { return }
+        // Leave listening immediately — finalization can take a second
+        // and lingering in the listening UI reads as "release didn't
+        // work". Dots show while the transcript settles.
+        tab = .ask
+        state = .expanded
+        onExpandChange?(true)
+        isWorking = true
         voice.end { [weak self] text in
             guard let self else { return }
+            self.isWorking = false
             let spoken = text.trimmingCharacters(in: .whitespacesAndNewlines)
-            self.tab = .ask
-            self.state = .expanded
-            self.onExpandChange?(true)
             if spoken.isEmpty {
                 self.answer = self.voice.failure
                     ?? "Heard nothing. Hold a beat longer next time."
@@ -155,6 +160,13 @@ final class NotchViewModel: ObservableObject {
                 self.submit(spoken)
             }
         }
+    }
+
+    /// Discard the recording without running anything.
+    func cancelListening() {
+        guard state == .listening else { return }
+        voice.cancel()
+        state = .collapsed
     }
 
     /// Attach text (from a clip or file) and jump to the Do surface.

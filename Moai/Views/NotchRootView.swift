@@ -61,7 +61,7 @@ struct NotchRootView: View {
         )
     }
 
-    private static let listeningSize = CGSize(width: 440, height: 180)
+    private static let listeningSize = CGSize(width: 380, height: 156)
 
     private var islandSize: CGSize {
         switch model.state {
@@ -175,7 +175,9 @@ struct NotchRootView: View {
             // state-based zones; tracking this animating view flickers.
             .onLongPressGesture(
                 minimumDuration: Theme.pressToTalkDelay,
-                maximumDistance: 60,
+                // Effectively unlimited: drifting the cursor mid-hold
+                // must not cancel the gesture, or release goes dead.
+                maximumDistance: 10_000,
                 pressing: { pressing in
                     if pressing {
                         pressStarted = Date()
@@ -309,7 +311,7 @@ struct NotchRootView: View {
     }
 
     private var listeningContent: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: 8) {
             Text("listening")
                 .font(.system(size: 11, weight: .semibold))
                 .tracking(3)
@@ -320,16 +322,28 @@ struct NotchRootView: View {
                 .foregroundStyle(Theme.textPrimary)
                 .lineLimit(2)
                 .multilineTextAlignment(.center)
-                .padding(.horizontal, 24)
-            Text("RELEASE OR TAP TO RUN")
+                .padding(.horizontal, 22)
+            Text("RELEASE TO RUN")
                 .font(.system(size: 9, weight: .semibold))
                 .tracking(1.2)
                 .foregroundStyle(Theme.textTertiary)
         }
-        .padding(.top, model.notchSize.height + 8)
+        .padding(.top, model.notchSize.height + 6)
         .contentShape(Rectangle())
         .onTapGesture {
             model.endListening()
+        }
+        .overlay(alignment: .topTrailing) {
+            Button {
+                model.cancelListening()
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundStyle(Theme.textTertiary)
+            }
+            .buttonStyle(.plain)
+            .padding(.top, model.notchSize.height + 8)
+            .padding(.trailing, 14)
         }
     }
 

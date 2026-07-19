@@ -111,6 +111,21 @@ final class VoiceController: NSObject, ObservableObject {
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.2, execute: timeout)
     }
 
+    /// Tear down without delivering anything — the user cancelled.
+    func cancel() {
+        finishTimeout?.cancel()
+        finishTimeout = nil
+        finishCompletion = nil
+        audioEngine.stop()
+        audioEngine.inputNode.removeTap(onBus: 0)
+        request?.endAudio()
+        task?.cancel()
+        task = nil
+        request = nil
+        level = 0
+        transcript = ""
+    }
+
     private func deliver() {
         finishTimeout?.cancel()
         finishTimeout = nil

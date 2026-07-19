@@ -12,6 +12,7 @@ final class NotchViewModel: ObservableObject {
         case ask
         case clipboard
         case shelf
+        case links
     }
 
     @Published var state: IslandState = .collapsed
@@ -40,6 +41,7 @@ final class NotchViewModel: ObservableObject {
     let focus = FocusController()
     let voice = VoiceController()
     let stats = SystemStatsController()
+    let shortcuts = ShortcutStore()
     private(set) lazy var engine = ActionEngine(model: self)
 
     /// Default pill for notch-less displays, so Moai works on any Mac.

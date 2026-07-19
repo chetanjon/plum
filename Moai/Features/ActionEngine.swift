@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 
 /// Turns plain sentences into done actions. Deterministic first:
@@ -70,6 +71,24 @@ final class ActionEngine {
             let title = Self.removing(range, from: rest)
             guard !title.isEmpty else { return "Schedule what?" }
             return await model.events.addEvent(title, start: date)
+        }
+
+        // Shortcuts: prefix verb, so it can't be hijacked by the fuzzy
+        // branches below. "open github" hits a saved shortcut by name;
+        // "open stripe.com" resolves cold.
+        for prefix in ["open ", "go to ", "launch "] where lower.hasPrefix(prefix) {
+            let name = String(lower.dropFirst(prefix.count))
+                .trimmingCharacters(in: .whitespaces)
+            guard !name.isEmpty else { return "Open what?" }
+            if let shortcut = model.shortcuts.match(name) {
+                model.shortcuts.open(shortcut)
+                return "Opening \(shortcut.title)."
+            }
+            if let url = ShortcutStore.resolvedURL(for: name) {
+                NSWorkspace.shared.open(url)
+                return "Opening."
+            }
+            return "No shortcut called \"\(name)\". Add it in the Go tab."
         }
 
         // Focus sessions

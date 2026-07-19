@@ -252,10 +252,23 @@ struct NotchRootView: View {
     private var collapsedContent: some View {
         HStack {
             if focus.isActive {
-                Text(focus.display)
-                    .font(.system(size: 11, weight: .semibold, design: .monospaced))
-                    .foregroundStyle(Theme.textPrimary)
-                    .padding(.leading, 11)
+                HStack(spacing: 5) {
+                    ZStack {
+                        Circle()
+                            .stroke(Color.white.opacity(0.15), lineWidth: 1.5)
+                        Circle()
+                            .trim(from: 0, to: max(0.02, focus.progress))
+                            .stroke(accent, style: StrokeStyle(lineWidth: 1.5, lineCap: .round))
+                            .rotationEffect(.degrees(-90))
+                            .animation(.linear(duration: 1), value: focus.progress)
+                    }
+                    .frame(width: 11, height: 11)
+                    Text(focus.display)
+                        .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                        .foregroundStyle(Theme.textPrimary)
+                        .opacity(focus.isPaused ? 0.5 : 1)
+                }
+                .padding(.leading, 11)
             } else if timer.isActive {
                 Text(timer.display)
                     .font(.system(size: 11, weight: .semibold, design: .monospaced))

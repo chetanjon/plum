@@ -24,6 +24,7 @@ struct ExpandedView: View {
 
     @Environment(\.moaiAccent) private var accent
     @State private var showSettings = false
+    @State private var showFocus = false
     @State private var launchAtLogin = false
     @FocusState private var inputFocused: Bool
     @Namespace private var tabNS
@@ -42,9 +43,15 @@ struct ExpandedView: View {
             if showSettings {
                 settings
                     .transition(.opacity)
+            } else if showFocus {
+                FocusPanel(focus: focus)
+                    .transition(.opacity)
             } else {
                 if focus.isActive {
                     FocusStrip(focus: focus)
+                        .onTapGesture {
+                            withAnimation(Theme.Motion.content) { showFocus = true }
+                        }
                         .transition(.opacity)
                 } else if timer.isActive {
                     timerStrip
@@ -68,6 +75,8 @@ struct ExpandedView: View {
                         ClipboardView(model: model)
                     case .shelf:
                         ShelfView(model: model)
+                    case .links:
+                        ShortcutsView(model: model)
                     }
                 }
                 .transition(.opacity)
@@ -80,6 +89,7 @@ struct ExpandedView: View {
         .foregroundStyle(.white)
         .animation(Theme.Motion.content, value: model.tab)
         .animation(Theme.Motion.content, value: showSettings)
+        .animation(Theme.Motion.content, value: showFocus)
         // The Bool, never nowPlaying itself: it mutates on every 1s poll.
         .animation(Theme.Motion.content, value: music.nowPlaying != nil)
         .animation(Theme.Motion.content, value: model.pendingContext != nil)
@@ -102,7 +112,21 @@ struct ExpandedView: View {
             .buttonStyle(.plain)
             Button {
                 withAnimation(Theme.Motion.content) {
+                    showFocus.toggle()
+                    if showFocus { showSettings = false }
+                }
+            } label: {
+                Image(systemName: "timer")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(
+                        showFocus || focus.isActive ? accent : Theme.textTertiary
+                    )
+            }
+            .buttonStyle(.plain)
+            Button {
+                withAnimation(Theme.Motion.content) {
                     showSettings.toggle()
+                    if showSettings { showFocus = false }
                 }
             } label: {
                 Image(systemName: "gearshape")
@@ -124,6 +148,7 @@ struct ExpandedView: View {
     private var tabRow: some View {
         HStack(spacing: 6) {
             tabButton("Do", .ask)
+            tabButton("Go", .links)
             tabButton("Clips", .clipboard)
             tabButton("Shelf", .shelf)
             Spacer()

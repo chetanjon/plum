@@ -10,6 +10,7 @@ final class NoiseEngine {
         case white
         case pink
         case rain
+        case fire
         case cafe
     }
 
@@ -38,6 +39,7 @@ final class NoiseEngine {
     private static func fileURL(for color: NoiseColor) -> URL? {
         switch color {
         case .rain: return Bundle.main.url(forResource: "rain", withExtension: "m4a")
+        case .fire: return Bundle.main.url(forResource: "fire", withExtension: "m4a")
         case .cafe: return Bundle.main.url(forResource: "cafe", withExtension: "m4a")
         default: return nil
         }

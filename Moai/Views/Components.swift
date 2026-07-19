@@ -246,6 +246,7 @@ struct NoiseButton: View {
         case .white: return "White"
         case .pink: return "Pink"
         case .rain: return "Rain"
+        case .fire: return "Fire"
         case .cafe: return "Café"
         }
     }
@@ -256,6 +257,7 @@ struct NoiseButton: View {
         case .white: return "waveform"
         case .pink: return "waveform.path"
         case .rain: return "cloud.rain.fill"
+        case .fire: return "flame.fill"
         case .cafe: return "cup.and.saucer.fill"
         }
     }

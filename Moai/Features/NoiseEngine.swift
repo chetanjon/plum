@@ -187,7 +187,7 @@ final class NoiseEngine {
         case .brown:
             brownLast = (brownLast + 0.02 * white) / 1.02
             value = brownLast * 3.2
-        case .rain, .cafe:
+        case .rain, .fire, .cafe:
             value = 0
         }
         return max(-1, min(1, value)) * gain

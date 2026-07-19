@@ -24,6 +24,10 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.cj.moai
         CODE_SIGN_STYLE: Automatic
+        # Stable dev-cert signing: ad-hoc re-signing made every rebuild
+        # look like a new app, resetting Keychain and TCC grants.
+        DEVELOPMENT_TEAM: WV59PZX4A3
+        CODE_SIGN_IDENTITY: "Apple Development"
         SWIFT_VERSION: "5.9"
         MACOSX_DEPLOYMENT_TARGET: "14.0"
         ENABLE_HARDENED_RUNTIME: NO

@@ -16,6 +16,7 @@ final class VoiceController: NSObject, ObservableObject {
     private var task: SFSpeechRecognitionTask?
     private var finishCompletion: ((String) -> Void)?
     private var finishTimeout: DispatchWorkItem?
+    private var availabilityHint: String?
 
     func begin() {
         SFSpeechRecognizer.requestAuthorization { _ in }
@@ -33,17 +34,19 @@ final class VoiceController: NSObject, ObservableObject {
         default:
             break
         }
-        guard let recognizer, recognizer.isAvailable else {
-            failure = "Speech recognition isn't available right now."
+        guard let recognizer else {
+            failure = "Speech recognition isn't available on this Mac."
             return
         }
-        // Audio stays on this Mac, as promised — so if the on-device
-        // model for this language isn't installed, say so instead of
-        // failing silently.
-        guard recognizer.supportsOnDeviceRecognition else {
-            failure = "On-device speech isn't available for your language yet."
-            return
-        }
+        // isAvailable / supportsOnDeviceRecognition can read false
+        // spuriously right after launch while speech assets warm up —
+        // never block on them. Record regardless; if recognition then
+        // produces nothing, these become the diagnosis.
+        availabilityHint = !recognizer.isAvailable
+            ? "Speech recognition isn't available right now — try again in a moment."
+            : (!recognizer.supportsOnDeviceRecognition
+                ? "On-device speech may still be downloading for your language."
+                : nil)
 
         let request = SFSpeechAudioBufferRecognitionRequest()
         request.requiresOnDeviceRecognition = true
@@ -114,6 +117,9 @@ final class VoiceController: NSObject, ObservableObject {
         guard let completion = finishCompletion else { return }
         finishCompletion = nil
         let text = transcript
+        if text.isEmpty, failure == nil {
+            failure = availabilityHint
+        }
         task?.cancel()
         task = nil
         request = nil

@@ -11,6 +11,11 @@ final class ShelfStore: ObservableObject {
 
     @Published var items: [Item] = []
     private let maxItems = 12
+    private let defaultsKey = "shelfBookmarks"
+
+    init() {
+        load()
+    }
 
     func add(_ url: URL) {
         guard !items.contains(where: { $0.url == url }) else { return }
@@ -18,10 +23,39 @@ final class ShelfStore: ObservableObject {
         if items.count > maxItems {
             items.removeLast(items.count - maxItems)
         }
+        save()
     }
 
     func remove(_ item: Item) {
         items.removeAll { $0.id == item.id }
+        save()
+    }
+
+    // MARK: Persistence
+
+    /// Bookmarks, not paths: a stashed file keeps resolving after the
+    /// user renames or moves it. Files deleted since last launch are
+    /// quietly pruned.
+    private func load() {
+        guard let blobs = UserDefaults.standard.array(forKey: defaultsKey) as? [Data] else {
+            return
+        }
+        items = blobs.compactMap { data in
+            var stale = false
+            guard let url = try? URL(
+                resolvingBookmarkData: data,
+                options: [],
+                relativeTo: nil,
+                bookmarkDataIsStale: &stale
+            ), FileManager.default.fileExists(atPath: url.path) else { return nil }
+            return Item(url: url)
+        }
+        save()
+    }
+
+    private func save() {
+        let blobs = items.compactMap { try? $0.url.bookmarkData() }
+        UserDefaults.standard.set(blobs, forKey: defaultsKey)
     }
 
     func airDrop(_ item: Item) {

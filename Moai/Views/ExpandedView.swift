@@ -472,6 +472,8 @@ struct FocusStrip: View {
             noiseButton("B", .brown)
             noiseButton("W", .white)
             noiseButton("P", .pink)
+            noiseButton("R", .rain)
+            noiseButton("C", .cafe)
             Button {
                 focus.stop()
             } label: {

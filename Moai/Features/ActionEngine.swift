@@ -117,13 +117,22 @@ final class ActionEngine {
             return "Timer on. \(minutes) minutes, counting in the notch."
         }
 
-        // Standalone noise
-        if lower.contains("noise") {
+        // Standalone ambience. Token match for rain/cafe so "training"
+        // or "cafeteria" can't trigger it.
+        let words = Set(lower.split(separator: " ").map(String.init))
+        if lower.contains("noise") || words.contains("rain")
+            || words.contains("cafe") || lower.contains("coffee shop") {
             let color: NoiseEngine.NoiseColor =
+                words.contains("rain") ? .rain :
+                (words.contains("cafe") || lower.contains("coffee")) ? .cafe :
                 lower.contains("white") ? .white :
                 lower.contains("pink") ? .pink : .brown
             model.focus.noise.start(color)
-            return "\(color.rawValue.capitalized) noise on. Say stop noise when done."
+            switch color {
+            case .rain: return "Rain on. Say stop noise when done."
+            case .cafe: return "Cafe hum on. Say stop noise when done."
+            default: return "\(color.rawValue.capitalized) noise on. Say stop noise when done."
+            }
         }
 
         // Music transport, explicit verbs

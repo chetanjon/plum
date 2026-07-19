@@ -81,6 +81,8 @@ struct FocusPanel: View {
                 noiseButton("B", .brown)
                 noiseButton("W", .white)
                 noiseButton("P", .pink)
+                noiseButton("R", .rain)
+                noiseButton("C", .cafe)
                 Spacer()
                 if focus.isPaused {
                     Text("paused")

@@ -4,6 +4,9 @@ import SwiftUI
 final class CountdownController: ObservableObject {
     @Published var remaining = 0
     @Published var isActive = false
+    /// Fires with the minutes when the countdown runs all the way
+    /// down; an early stop never reports.
+    var onComplete: ((Int) -> Void)?
     private var timer: Timer?
     private var total = 0
 
@@ -33,8 +36,10 @@ final class CountdownController: ObservableObject {
     private func tick() {
         remaining -= 1
         if remaining <= 0 {
+            let minutes = total / 60
             stop()
             NSSound.beep()
+            onComplete?(minutes)
         }
     }
 
@@ -56,6 +61,11 @@ final class FocusController: ObservableObject {
     @Published var remaining = 0
     @Published var cycle = 1
     @Published var noiseColor: NoiseEngine.NoiseColor = .brown
+
+    /// Fires with the work minutes when a work phase runs to zero.
+    /// Skip jumps straight to advance() and stop() never gets here,
+    /// so neither ever counts.
+    var onWorkPhaseComplete: ((Int) -> Void)?
 
     /// Shared ambience owner, focus drives it, never a private engine.
     let ambience: AmbienceController
@@ -141,6 +151,9 @@ final class FocusController: ObservableObject {
         guard !isPaused else { return }
         remaining -= 1
         guard remaining <= 0 else { return }
+        if phase == .work {
+            onWorkPhaseComplete?(workMinutes)
+        }
         advance()
         NSSound.beep()
     }

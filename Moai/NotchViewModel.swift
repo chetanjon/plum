@@ -67,6 +67,7 @@ final class NotchViewModel: ObservableObject {
     let timer = CountdownController()
     let ambience = AmbienceController()
     let focus: FocusController
+    let focusStats = FocusStatsStore()
     let voice = VoiceController()
     let stats = SystemStatsController()
     let shortcuts = ShortcutStore()
@@ -86,6 +87,12 @@ final class NotchViewModel: ObservableObject {
         // Before any view can read the key: legacy plaintext storage
         // moves into the Keychain once.
         KeychainStore.migrateFromDefaults(key: "anthropicKey", account: "anthropicKey")
+        timer.onComplete = { [weak self] minutes in
+            self?.focusStats.recordSession(minutes: minutes)
+        }
+        focus.onWorkPhaseComplete = { [weak self] minutes in
+            self?.focusStats.recordSession(minutes: minutes)
+        }
     }
 
     func start() {

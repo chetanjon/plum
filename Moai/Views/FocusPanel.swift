@@ -5,6 +5,7 @@ import SwiftUI
 struct FocusPanel: View {
     @ObservedObject var focus: FocusController
     @ObservedObject var timer: CountdownController
+    @ObservedObject var stats: FocusStatsStore
     @Environment(\.moaiAccent) private var accent
 
     var body: some View {
@@ -40,6 +41,12 @@ struct FocusPanel: View {
                 }
             }
             .padding(.top, Theme.Space.xs)
+            if let line = stats.summary {
+                Text(line)
+                    .font(Theme.Fonts.caption)
+                    .foregroundStyle(Theme.textTertiary)
+                    .padding(.top, Theme.Space.xs)
+            }
             Spacer(minLength: 0)
         }
     }

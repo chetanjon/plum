@@ -143,7 +143,8 @@ struct ExpandedView: View {
         case .shelf:
             ShelfView(model: model).frame(height: Theme.Panel.list)
         case .focus:
-            FocusPanel(focus: focus, timer: timer).frame(height: Theme.Panel.focus)
+            FocusPanel(focus: focus, timer: timer, stats: model.focusStats)
+                .frame(height: Theme.Panel.focus)
         }
     }
 

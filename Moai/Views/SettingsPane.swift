@@ -6,10 +6,19 @@ import SwiftUI
 struct SettingsPane: View {
     @ObservedObject var music: MusicController
 
-    // Optional. Everything local runs without them. Live in the Keychain;
-    // loaded when the pane appears, saved on submit/dismiss.
-    @State private var apiKeys: [AIProvider: String] = [:]
     @State private var launchAtLogin = false
+    @State private var apiKeys: [AIProvider: String] = [:]
+
+    // Which blocks the island shows. Media/ambience/tools ship on; your
+    // day is opt-in.
+    @AppStorage("showMedia") private var showMedia = true
+    @AppStorage("showAmbience") private var showAmbience = true
+    @AppStorage("showCalendar") private var showCalendar = false
+    @AppStorage("showReminders") private var showReminders = false
+    @AppStorage("toolGo") private var toolGo = true
+    @AppStorage("toolClips") private var toolClips = true
+    @AppStorage("toolShelf") private var toolShelf = true
+    @AppStorage("toolFocus") private var toolFocus = true
 
     @AppStorage("expandOnHover") private var expandOnHover = true
     @AppStorage("openDelay") private var openDelay = 0.12
@@ -26,7 +35,24 @@ struct SettingsPane: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Theme.Space.l) {
-                section("Island", reveal: 0) {
+                section("What shows", reveal: 0) {
+                    toggleRow("Media", $showMedia)
+                    divider
+                    toggleRow("Ambience", $showAmbience)
+                    divider
+                    toggleRow("Calendar today", $showCalendar)
+                    divider
+                    toggleRow("Reminders", $showReminders)
+                    divider
+                    toggleRow("Go — shortcuts", $toolGo)
+                    divider
+                    toggleRow("Clips — clipboard", $toolClips)
+                    divider
+                    toggleRow("Shelf — files", $toolShelf)
+                    divider
+                    toggleRow("Focus & timers", $toolFocus)
+                }
+                section("Island", reveal: 1) {
                     toggleRow("Open on hover", $expandOnHover)
                     divider
                     toggleRow("Show edge when idle", $idleEdgeOn)
@@ -57,7 +83,7 @@ struct SettingsPane: View {
                         ])
                     }
                 }
-                section("Life", reveal: 1) {
+                section("Life", reveal: 2) {
                     row("Feel") {
                         picker($motionFeel, [
                             ("Still", "still"), ("Serene", "serene"),
@@ -69,7 +95,7 @@ struct SettingsPane: View {
                     divider
                     toggleRow("Glow with music", $glowOn)
                 }
-                section("Accent", reveal: 2) {
+                section("Accent", reveal: 3) {
                     HStack(spacing: Theme.Space.l) {
                         swatch("album", music.accent, label: "Album")
                         swatch("silver", Theme.accentFallback, label: "Silver")
@@ -79,7 +105,7 @@ struct SettingsPane: View {
                         Spacer()
                     }
                 }
-                section("AI keys", reveal: 3) {
+                section("Cloud AI (optional)", reveal: 4) {
                     let keyed = AIProvider.allCases.filter(\.needsKey)
                     ForEach(keyed, id: \.self) { provider in
                         keyField(for: provider)
@@ -87,7 +113,7 @@ struct SettingsPane: View {
                             divider
                         }
                     }
-                    Text("Optional, for the hard questions. The Mac's own model answers without any key. Pick who answers with the chip next to the Do box. Keys stay on this Mac.")
+                    Text("Only for questions the local verbs can't answer. The Mac's own model handles those with no key. Keys stay on this Mac.")
                         .font(Theme.Fonts.caption)
                         .foregroundStyle(Theme.textHint)
                 }
@@ -96,10 +122,10 @@ struct SettingsPane: View {
             .padding(.bottom, Theme.Space.m)
         }
         .onAppear {
+            launchAtLogin = SMAppService.mainApp.status == .enabled
             for provider in AIProvider.allCases where provider.needsKey {
                 apiKeys[provider] = KeychainStore.read(provider.keychainAccount) ?? ""
             }
-            launchAtLogin = SMAppService.mainApp.status == .enabled
         }
         .onDisappear { saveKeys() }
     }

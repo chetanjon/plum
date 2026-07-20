@@ -57,7 +57,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         Task { @MainActor in
             guard let model = self.notchController?.viewModel else { return }
             model.expand()
-            model.full = true
             model.pane = .settings
         }
     }

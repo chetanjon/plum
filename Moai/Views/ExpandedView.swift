@@ -1,14 +1,26 @@
 import SwiftUI
 
-/// The island's open form. One rule governs it: Full is Peek grown
-/// taller. The three shared rows — session/music, ambience, ask —
-/// never move; Full adds tabs and depth *below* them.
+/// The island's open form: one state, voice-first. There is no text bar
+/// and no More/Less — you speak (the mic, or hold the notch), and the
+/// island shows only the blocks you keep on, sizing itself to fit.
 struct ExpandedView: View {
     @ObservedObject var model: NotchViewModel
     @ObservedObject var music: MusicController
     @ObservedObject var timer: CountdownController
     @ObservedObject var focus: FocusController
     @ObservedObject var ambience: AmbienceController
+
+    // Modular blocks — each shows only if the user keeps it on. Media,
+    // ambience and the tools are on out of the box; your day (calendar,
+    // reminders) is opt-in, so a fresh island stays quiet and private.
+    @AppStorage("showMedia") private var showMedia = true
+    @AppStorage("showAmbience") private var showAmbience = true
+    @AppStorage("showCalendar") private var showCalendar = false
+    @AppStorage("showReminders") private var showReminders = false
+    @AppStorage("toolGo") private var toolGo = true
+    @AppStorage("toolClips") private var toolClips = true
+    @AppStorage("toolShelf") private var toolShelf = true
+    @AppStorage("toolFocus") private var toolFocus = true
 
     init(model: NotchViewModel) {
         self.model = model
@@ -18,42 +30,48 @@ struct ExpandedView: View {
         self.ambience = model.ambience
     }
 
+    private var todayEnabled: Bool { showCalendar || showReminders }
+
+    private var enabledTools: [NotchViewModel.Tab] {
+        var tools: [NotchViewModel.Tab] = []
+        if toolGo { tools.append(.links) }
+        if toolClips { tools.append(.clipboard) }
+        if toolShelf { tools.append(.shelf) }
+        if toolFocus { tools.append(.focus) }
+        return tools
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Space.l) {
-            // --- the shared rows: identical in Peek and Full ---
             if focus.isActive || timer.isActive {
                 SessionStrip(
                     kind: focus.isActive ? .focus : .timer,
                     focus: focus,
                     timer: timer
                 ) {
-                    withAnimation(Theme.Motion.content) {
-                        model.tab = .focus
-                        model.full = true
-                    }
+                    withAnimation(Theme.Motion.content) { model.tab = .focus }
                 }
                 .transition(.opacity)
             }
-            if music.nowPlaying != nil {
-                MusicRow(music: music)
-                    .transition(.opacity)
-            }
-            AmbienceRow(ambience: ambience)
-            AskBar(model: model)
 
-            // --- the growth: tabs and depth, below what you know ---
-            if model.full {
-                grown
+            topRow
+
+            if showAmbience {
+                AmbienceRow(ambience: ambience)
                     .transition(.opacity)
             }
 
-            MoreButton(expanded: model.full) {
-                withAnimation(Theme.Motion.content) {
-                    model.full.toggle()
-                    if !model.full { model.pane = .none }
-                }
+            Rectangle()
+                .fill(Theme.hairlineFaint)
+                .frame(height: 1)
+
+            if model.pane == .settings {
+                settingsSection
+            } else {
+                Switcher(model: model, todayEnabled: todayEnabled, tools: enabledTools)
+                panel
+                    .transition(.opacity)
             }
-            .frame(maxWidth: .infinity)
         }
         .padding(.horizontal, Theme.Space.xl)
         .padding(.top, model.notchSize.height + Theme.Space.m)
@@ -62,16 +80,18 @@ struct ExpandedView: View {
         .frame(width: 520)
         .fixedSize(horizontal: false, vertical: true)
         .background(
+            // The island hugs its content — driven straight from geometry
+            // (a `.preference`/`.onPreferenceChange` pair silently failed
+            // in this hierarchy, freezing the island at its default size).
             GeometryReader { geo in
-                Color.clear.preference(key: ExpandedSizeKey.self, value: geo.size)
+                Color.clear
+                    .onChange(of: geo.size, initial: true) { _, size in
+                        guard size.height > 0 else { return }
+                        model.expandedSize = size
+                    }
             }
         )
-        .onPreferenceChange(ExpandedSizeKey.self) { size in
-            guard size.height > 0 else { return }
-            model.expandedSize = size
-        }
         .animation(Theme.Motion.content, value: model.tab)
-        .animation(Theme.Motion.content, value: model.full)
         .animation(Theme.Motion.content, value: model.pane)
         .animation(Theme.Motion.content, value: music.nowPlaying != nil)
         .animation(Theme.Motion.content, value: ambience.active)
@@ -81,8 +101,6 @@ struct ExpandedView: View {
             withAnimation(Theme.Motion.content) {
                 if model.pane != .none {
                     model.pane = .none
-                } else if model.full {
-                    model.full = false
                 } else {
                     model.collapse()
                 }
@@ -90,59 +108,111 @@ struct ExpandedView: View {
         }
     }
 
-    @ViewBuilder
-    private var grown: some View {
-        Rectangle()
-            .fill(Theme.hairlineFaint)
-            .frame(height: 1)
-
-        if model.pane == .settings {
-            HStack(spacing: Theme.Space.xs) {
-                HoverGlyphButton(symbol: "chevron.left", tint: Theme.textSecondary) {
-                    withAnimation(Theme.Motion.content) { model.pane = .none }
-                }
-                Text("Settings")
-                    .font(Theme.Fonts.title)
-                    .foregroundStyle(Theme.textPrimary)
-                Spacer()
+    /// Media (if on and something's playing) with the persistent mic —
+    /// the voice affordance is always reachable even when media is off.
+    private var topRow: some View {
+        HStack(spacing: Theme.Space.l) {
+            if showMedia, music.nowPlaying != nil {
+                MusicRow(music: music)
+            } else {
+                Spacer(minLength: 0)
             }
-            SettingsPane(music: music)
-                .frame(height: 300)
-        } else {
-            HStack(spacing: Theme.Space.s) {
-                TabRow(model: model)
-                Spacer()
-                HoverGlyphButton(symbol: "gearshape", scale: .s, tint: Theme.textTertiary) {
-                    withAnimation(Theme.Motion.content) { model.pane = .settings }
-                }
-            }
-
-            Group {
-                switch model.tab {
-                case .ask:
-                    AnswerView(model: model)
-                case .links:
-                    ShortcutsView(model: model)
-                        .frame(height: 230)
-                case .clipboard:
-                    ClipboardView(model: model)
-                        .frame(height: 230)
-                case .shelf:
-                    ShelfView(model: model)
-                        .frame(height: 230)
-                case .focus:
-                    FocusPanel(focus: focus, timer: timer)
-                        .frame(height: 190)
-                }
-            }
-            .transition(.opacity)
+            MicButton { model.toggleListening() }
         }
+    }
+
+    @ViewBuilder
+    private var panel: some View {
+        switch model.tab {
+        case .today:
+            if todayEnabled {
+                TodayView(showCalendar: showCalendar, showReminders: showReminders)
+            } else {
+                AnswerView(model: model)
+            }
+        case .ask:
+            AnswerView(model: model)
+        case .links:
+            ShortcutsView(model: model).frame(height: 230)
+        case .clipboard:
+            ClipboardView(model: model).frame(height: 230)
+        case .shelf:
+            ShelfView(model: model).frame(height: 230)
+        case .focus:
+            FocusPanel(focus: focus, timer: timer).frame(height: 190)
+        }
+    }
+
+    @ViewBuilder
+    private var settingsSection: some View {
+        HStack(spacing: Theme.Space.xs) {
+            HoverGlyphButton(symbol: "chevron.left", tint: Theme.textSecondary) {
+                withAnimation(Theme.Motion.content) { model.pane = .none }
+            }
+            Text("Settings")
+                .font(Theme.Fonts.title)
+                .foregroundStyle(Theme.textPrimary)
+            Spacer()
+        }
+        SettingsPane(music: music)
+            .frame(height: 300)
     }
 }
 
-private struct ExpandedSizeKey: PreferenceKey {
-    static var defaultValue: CGSize = .zero
-    static func reduce(value: inout CGSize, nextValue: () -> CGSize) {
-        value = nextValue()
+/// The voice affordance: tap to talk, tap again to run — or hold the
+/// notch. Always present, whatever else the island is showing.
+private struct MicButton: View {
+    let action: () -> Void
+    @State private var hovered = false
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: "mic.fill")
+                .font(Theme.Fonts.icon(.m))
+                .foregroundStyle(hovered ? Theme.textPrimary : Theme.textSecondary)
+                .frame(width: 30, height: 30)
+                .background(Circle().fill(Color.white.opacity(hovered ? 0.08 : 0.04)))
+                .overlay(Circle().strokeBorder(Theme.hairline, lineWidth: 1))
+                .contentShape(Circle())
+        }
+        .buttonStyle(PressableStyle())
+        .onHover { hovered = $0 }
+        .help("Speak — or hold the notch")
+        .animation(Theme.Motion.hover, value: hovered)
+    }
+}
+
+/// Your day, shown only when turned on. Calendar and reminders are
+/// independent blocks. (Live EventKit data is wired in a later pass;
+/// this is the shape.)
+struct TodayView: View {
+    let showCalendar: Bool
+    let showReminders: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Theme.Space.l) {
+            if showCalendar {
+                block("Today", "Your events appear here.")
+            }
+            if showReminders {
+                block("Reminders", "Your open reminders appear here.")
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func block(_ title: String, _ line: String) -> some View {
+        VStack(alignment: .leading, spacing: Theme.Space.s) {
+            HStack(spacing: Theme.Space.s) {
+                Text(title.uppercased())
+                    .font(Theme.Fonts.micro)
+                    .tracking(1.3)
+                    .foregroundStyle(Theme.textTertiary)
+                Rectangle().fill(Theme.hairlineFaint).frame(height: 1)
+            }
+            Text(line)
+                .font(Theme.Fonts.body)
+                .foregroundStyle(Theme.textHint)
+        }
     }
 }

@@ -58,8 +58,11 @@ final class NotchWindowController {
         viewModel.notchSize = notchSize
 
         // The panel is a fixed transparent region at the top of the screen.
-        // The island animates inside it, so the window never resizes.
-        let panelSize = CGSize(width: 820, height: 560)
+        // The island animates inside it, so the window never resizes. Its
+        // height must clear the tallest island (Full + a session strip +
+        // the Settings pane measures ~640pt); clear areas hit-test through,
+        // so the extra room costs nothing.
+        let panelSize = CGSize(width: 820, height: 720)
         let frame = NSRect(
             x: screen.frame.midX - panelSize.width / 2,
             y: screen.frame.maxY - panelSize.height,

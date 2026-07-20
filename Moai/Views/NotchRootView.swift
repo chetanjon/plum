@@ -12,7 +12,6 @@ struct NotchRootView: View {
     @State private var isDropTargeted = false
     @State private var pressStarted: Date?
 
-    @AppStorage("expandedSizePreset") private var sizePreset = "compact"
     // Declared so the view re-renders (and re-reads Theme.Motion) the
     // moment the user changes the feel in settings.
     @AppStorage("motionFeel") private var motionFeel = "serene"

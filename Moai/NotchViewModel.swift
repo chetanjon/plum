@@ -10,6 +10,7 @@ final class NotchViewModel: ObservableObject {
     }
 
     enum Tab {
+        case today
         case ask
         case clipboard
         case shelf
@@ -17,7 +18,7 @@ final class NotchViewModel: ObservableObject {
         case focus
     }
 
-    /// Settings slides over the grown island; collapsing closes it.
+    /// Settings slides over the island body; collapsing closes it.
     enum Pane {
         case none
         case settings
@@ -25,12 +26,9 @@ final class NotchViewModel: ObservableObject {
 
     @Published var state: IslandState = .collapsed
     @Published var isHovering = false
-    @Published var tab: Tab = .ask
+    /// Which lower panel the switcher is showing. `.today` is home.
+    @Published var tab: Tab = .today
     @Published var pane: Pane = .none
-
-    /// Peek (false) shows the three shared rows; Full (true) grows the
-    /// island in place with tabs and the deep surfaces below them.
-    @Published var full = false
 
     /// The island's expanded size, measured from the content itself —
     /// the island hugs what's shown instead of reserving a fixed void.
@@ -74,16 +72,6 @@ final class NotchViewModel: ObservableObject {
     /// Default pill for notch-less displays, so Moai works on any Mac.
     static let defaultNotchSize = CGSize(width: 196, height: 34)
 
-    /// Expanded island size for a stored size preset. Shared by the
-    /// view (rendering) and the window controller (hover zones).
-    static func expandedSize(for preset: String) -> CGSize {
-        switch preset {
-        case "cozy": return CGSize(width: 630, height: 370)
-        case "large": return CGSize(width: 700, height: 420)
-        default: return CGSize(width: 560, height: 320)
-        }
-    }
-
     /// Physical notch size measured by NotchWindowController.
     var notchSize = NotchViewModel.defaultNotchSize
 
@@ -123,7 +111,7 @@ final class NotchViewModel: ObservableObject {
         state = .collapsed
         // The island always reopens small and clean.
         pane = .none
-        full = false
+        tab = .today
         onExpandChange?(false)
     }
 
@@ -186,7 +174,6 @@ final class NotchViewModel: ObservableObject {
         // and lingering in the listening UI reads as "release didn't
         // work". Dots show while the transcript settles.
         tab = .ask
-        full = true
         state = .expanded
         onExpandChange?(true)
         isWorking = true
@@ -214,7 +201,6 @@ final class NotchViewModel: ObservableObject {
     func askAbout(name: String, text: String) {
         pendingContext = (name, text)
         tab = .ask
-        full = true
         expand()
     }
 
@@ -226,7 +212,6 @@ final class NotchViewModel: ObservableObject {
         errorText = ""
         // Answers need room — the island grows to show them.
         tab = .ask
-        full = true
 
         Task {
             // Local verbs first: instant, offline, keyless.
@@ -235,16 +220,19 @@ final class NotchViewModel: ObservableObject {
                 return
             }
 
-            // Beyond local verbs, the selected model takes over. The
-            // on-device model needs no key; cloud providers do.
+            // Beyond local verbs, freeform questions go to a model. The
+            // Mac's on-device model answers with no key; a cloud provider
+            // (added quietly in Settings) takes over only when its key is
+            // on file. None of this is surfaced in the island UI.
             let provider = AIProvider.current
             var key = ""
             if provider.needsKey {
                 key = KeychainStore.read(provider.keychainAccount) ?? ""
-                guard !key.isEmpty else {
-                    answer = "That one needs a \(provider.displayName) API key. Reminders, notes, timers, focus, and music all work without it. Gear icon, top right."
-                    return
-                }
+            }
+            let ready = provider == .local ? AIService.localModelAvailable : !key.isEmpty
+            guard ready else {
+                answer = "That one needs a model. Turn on Apple Intelligence, or add a key in Settings — reminders, notes, timers, focus, calendar, and music all work without one."
+                return
             }
 
             var fullPrompt = text

@@ -1,69 +1,68 @@
 import SwiftUI
 
-/// The content tabs with their sliding pill. The pill's namespace
-/// lives here — nothing outside the row matches against it.
-struct TabRow: View {
+/// The lower-panel switcher: Today (when your day is turned on) plus
+/// whichever tools you keep, and the settings gear. Items are icon-only
+/// until selected — the active one wears its label, so the row stays
+/// quiet.
+struct Switcher: View {
     @ObservedObject var model: NotchViewModel
-    @Namespace private var ns
+    let todayEnabled: Bool
+    let tools: [NotchViewModel.Tab]
 
     var body: some View {
-        HStack(spacing: Theme.Space.s) {
-            pill("Answer", .ask)
-            pill("Go", .links)
-            pill("Clips", .clipboard)
-            pill("Shelf", .shelf)
-            pill("Focus", .focus)
-        }
-    }
-
-    private static let order: [NotchViewModel.Tab] = [.ask, .links, .clipboard, .shelf, .focus]
-
-    private func pill(_ title: String, _ tab: NotchViewModel.Tab) -> some View {
-        TabPill(title: title, selected: model.tab == tab, namespace: ns) {
-            let from = Self.order.firstIndex(of: model.tab) ?? 0
-            let to = Self.order.firstIndex(of: tab) ?? 0
-            model.tabSlideDirection = to >= from ? 1 : -1
-            withAnimation(Theme.Motion.content) {
-                model.tab = tab
+        HStack(spacing: Theme.Space.xs) {
+            if todayEnabled {
+                item(.today)
+            }
+            ForEach(tools, id: \.self) { item($0) }
+            Spacer(minLength: 0)
+            HoverGlyphButton(symbol: "gearshape", scale: .s, tint: Theme.textTertiary) {
+                withAnimation(Theme.Motion.content) { model.pane = .settings }
             }
         }
     }
-}
 
-/// One tab in the sliding-pill row. Inactive tabs answer hover with
-/// a tint lift and a ghost of the pill.
-struct TabPill: View {
-    let title: String
-    let selected: Bool
-    let namespace: Namespace.ID
-    let action: () -> Void
-
-    @State private var hovered = false
-
-    var body: some View {
-        Button(action: action) {
-            Text(title)
-                .font(Theme.Fonts.label)
-                .foregroundStyle(
-                    selected ? Theme.textPrimary
-                        : hovered ? Theme.textSecondary : Theme.textTertiary
-                )
-                .padding(.horizontal, Theme.Space.wingInset)
-                .padding(.vertical, 5)
-                .background {
-                    if selected {
-                        Capsule()
-                            .fill(Color.white.opacity(0.10))
-                            .matchedGeometryEffect(id: "tabPill", in: namespace)
-                    } else if hovered {
-                        Capsule()
-                            .fill(Color.white.opacity(0.05))
-                    }
+    private func item(_ tab: NotchViewModel.Tab) -> some View {
+        let on = model.tab == tab
+        return Button {
+            withAnimation(Theme.Motion.content) { model.tab = tab }
+        } label: {
+            HStack(spacing: 5) {
+                Image(systemName: Self.symbol(tab))
+                    .font(Theme.Fonts.icon(.s))
+                if on {
+                    Text(Self.label(tab)).font(Theme.Fonts.label)
                 }
-                .contentShape(Capsule())
+            }
+            .foregroundStyle(on ? Theme.textPrimary : Theme.textTertiary)
+            .padding(.horizontal, Theme.Space.s)
+            .padding(.vertical, 5)
+            .background(Capsule().fill(Color.white.opacity(on ? 0.08 : 0)))
+            .contentShape(Capsule())
         }
         .buttonStyle(PressableStyle())
-        .onHover { hovered = $0 }
-        .animation(Theme.Motion.hover, value: hovered)
+        .help(Self.label(tab))
+    }
+
+    static func symbol(_ tab: NotchViewModel.Tab) -> String {
+        switch tab {
+        case .today: return "calendar"
+        case .ask: return "sparkles"
+        case .links: return "square.grid.2x2"
+        case .clipboard: return "doc.on.clipboard"
+        case .shelf: return "tray"
+        case .focus: return "timer"
+        }
+    }
+
+    static func label(_ tab: NotchViewModel.Tab) -> String {
+        switch tab {
+        case .today: return "Today"
+        case .ask: return "Answer"
+        case .links: return "Go"
+        case .clipboard: return "Clips"
+        case .shelf: return "Shelf"
+        case .focus: return "Focus"
+        }
     }
 }

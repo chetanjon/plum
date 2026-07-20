@@ -29,6 +29,9 @@ struct SettingsPane: View {
     @AppStorage("glowOn") private var glowOn = true
     @AppStorage("idleEdgeOn") private var idleEdgeOn = true
     @AppStorage("accentMode") private var accentMode = "album"
+    @AppStorage("glanceMusic") private var glanceMusic = true
+    @AppStorage("glanceSession") private var glanceSession = true
+    @AppStorage("glanceIdle") private var glanceIdle = "clock"
 
     @Environment(\.moaiAccent) private var accent
 
@@ -83,7 +86,19 @@ struct SettingsPane: View {
                         ])
                     }
                 }
-                section("Life", reveal: 2) {
+                section("Glance", reveal: 2) {
+                    toggleRow("Song name while playing", $glanceMusic)
+                    divider
+                    toggleRow("Session phase", $glanceSession)
+                    divider
+                    row("When idle") {
+                        picker($glanceIdle, [
+                            ("Clock", "clock"), ("Day", "day"),
+                            ("Streak", "streak"), ("Nothing", "none"),
+                        ])
+                    }
+                }
+                section("Life", reveal: 3) {
                     row("Feel") {
                         picker($motionFeel, [
                             ("Still", "still"), ("Serene", "serene"),
@@ -95,7 +110,7 @@ struct SettingsPane: View {
                     divider
                     toggleRow("Glow with music", $glowOn)
                 }
-                section("Accent", reveal: 3) {
+                section("Accent", reveal: 4) {
                     HStack(spacing: Theme.Space.l) {
                         swatch("album", music.accent, label: "Album")
                         swatch("silver", Theme.accentFallback, label: "Silver")
@@ -105,7 +120,7 @@ struct SettingsPane: View {
                         Spacer()
                     }
                 }
-                section("Cloud AI (optional)", reveal: 4) {
+                section("Cloud AI (optional)", reveal: 5) {
                     let keyed = AIProvider.allCases.filter(\.needsKey)
                     ForEach(keyed, id: \.self) { provider in
                         keyField(for: provider)

@@ -9,6 +9,7 @@ struct NotchRootView: View {
     @ObservedObject var voice: VoiceController
     @ObservedObject var ambience: AmbienceController
     @ObservedObject var stats: SystemStatsController
+    @ObservedObject var focusStats: FocusStatsStore
     @State private var pressStarted: Date?
 
     // Declared so the view re-renders (and re-reads Theme.Motion) the
@@ -18,6 +19,10 @@ struct NotchRootView: View {
     @AppStorage("glowOn") private var glowOn = true
     @AppStorage("idleEdgeOn") private var idleEdgeOn = true
     @AppStorage("accentMode") private var accentMode = "album"
+    // What the collapsed glance may show, user-tunable in Settings.
+    @AppStorage("glanceMusic") private var glanceMusic = true
+    @AppStorage("glanceSession") private var glanceSession = true
+    @AppStorage("glanceIdle") private var glanceIdle = "clock"
 
     /// This view injects the accent into the environment for everything
     /// below it, so it reads the source directly rather than @Environment
@@ -34,6 +39,7 @@ struct NotchRootView: View {
         self.voice = model.voice
         self.ambience = model.ambience
         self.stats = model.stats
+        self.focusStats = model.focusStats
     }
 
     private var hasLeftWing: Bool {
@@ -52,9 +58,14 @@ struct NotchRootView: View {
 
     /// Width the right-of-camera glance needs on notched displays.
     private var notchSideNeed: CGFloat {
-        if focus.isActive || timer.isActive { return 92 }
-        if music.nowPlaying?.isPlaying == true { return 107 }
-        return 55
+        if (focus.isActive || timer.isActive), glanceSession { return 92 }
+        if music.nowPlaying?.isPlaying == true, glanceMusic { return 107 }
+        switch glanceIdle {
+        case "none": return 0
+        case "day": return 78
+        case "streak": return focusStats.days.isEmpty ? 55 : 130
+        default: return 55
+        }
     }
 
     /// Stable per-state sizes: content is framed to its own state's
@@ -309,15 +320,15 @@ struct NotchRootView: View {
 
     @ViewBuilder
     private var middleContent: some View {
-        if focus.isActive || timer.isActive {
+        if (focus.isActive || timer.isActive), glanceSession {
             sessionHint
-        } else if let playing = music.nowPlaying, playing.isPlaying {
+        } else if let playing = music.nowPlaying, playing.isPlaying, glanceMusic {
             // Just the song name: the two-part line read as clutter
             // in this little window.
             MarqueeText(title: playing.track)
                 .id(playing.track)
         } else {
-            clockGlance
+            idleGlance
         }
     }
 
@@ -325,15 +336,51 @@ struct NotchRootView: View {
     /// the middle belongs to hardware and only the wings are usable.
     @ViewBuilder
     private var notchSideContent: some View {
-        if focus.isActive || timer.isActive {
+        if (focus.isActive || timer.isActive), glanceSession {
             sessionHint
-        } else if let playing = music.nowPlaying, playing.isPlaying {
+        } else if let playing = music.nowPlaying, playing.isPlaying, glanceMusic {
             MarqueeText(title: playing.track)
                 .id(playing.track)
                 .frame(width: 96)
         } else {
+            idleGlance
+        }
+    }
+
+    /// Nothing playing, nothing running: whatever quiet thing the
+    /// user chose for the empty moment.
+    @ViewBuilder
+    private var idleGlance: some View {
+        switch glanceIdle {
+        case "none":
+            EmptyView()
+        case "day":
+            TimelineView(.everyMinute) { context in
+                Text(
+                    context.date,
+                    format: .dateTime.weekday(.abbreviated)
+                        .hour(.defaultDigits(amPM: .omitted)).minute()
+                )
+                .font(Theme.Fonts.captionMono)
+                .foregroundStyle(Theme.textTertiary)
+            }
+        case "streak":
+            if focusStats.days.isEmpty {
+                clockGlance
+            } else {
+                Text(streakLine)
+                    .font(Theme.Fonts.captionMono)
+                    .foregroundStyle(Theme.textTertiary)
+            }
+        default:
             clockGlance
         }
+    }
+
+    private var streakLine: String {
+        let today = "\(FocusStatsStore.clock(focusStats.todayMinutes)) today"
+        guard focusStats.streak >= 2 else { return today }
+        return "\(focusStats.streak)d streak · \(today)"
     }
 
     private var sessionHint: some View {
@@ -393,7 +440,9 @@ struct NotchRootView: View {
                 NowPlayingBars(accent: accent, barCount: 4, maxHeight: 11)
                     .padding(.leading, Theme.Space.wingInset)
             }
-            if let active = ambience.active {
+            // While music plays the glance belongs to the song and its
+            // wave alone; the soundscape symbol steps back.
+            if let active = ambience.active, music.nowPlaying?.isPlaying != true {
                 Image(systemName: active.symbol)
                     .font(Theme.Fonts.icon(.xs))
                     .foregroundStyle(accent)

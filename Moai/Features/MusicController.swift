@@ -73,6 +73,38 @@ final class MusicController: ObservableObject {
         return nil
     }
 
+    // MARK: - Quick access
+
+    private let lastAppKey = "moai.lastMusicApp"
+
+    /// The app the quick-access chip would open right now: whatever is
+    /// running, else whatever played last, else whatever is installed.
+    var preferredApp: MusicApp? {
+        if let app = activeApp() { return app }
+        if let raw = UserDefaults.standard.string(forKey: lastAppKey),
+           let app = MusicApp(rawValue: raw), isInstalled(app) {
+            return app
+        }
+        if isInstalled(.spotify) { return .spotify }
+        if isInstalled(.appleMusic) { return .appleMusic }
+        return nil
+    }
+
+    /// Open the preferred player; with neither installed, fall back to
+    /// YouTube Music in the browser so the chip always does something.
+    func openMusicApp() {
+        if let app = preferredApp,
+           let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: app.bundleID) {
+            NSWorkspace.shared.openApplication(at: url, configuration: .init())
+        } else if let url = URL(string: "https://music.youtube.com") {
+            NSWorkspace.shared.open(url)
+        }
+    }
+
+    private func isInstalled(_ app: MusicApp) -> Bool {
+        NSWorkspace.shared.urlForApplication(withBundleIdentifier: app.bundleID) != nil
+    }
+
     private func command(_ verb: String) {
         guard let app = activeApp() else { return }
         runScript("tell application \"\(app.rawValue)\" to \(verb)")
@@ -143,6 +175,7 @@ final class MusicController: ObservableObject {
             duration: Self.number(parts[5]),
             volume: Self.number(parts[6])
         )
+        UserDefaults.standard.set(app.rawValue, forKey: lastAppKey)
         refreshArtwork(app: app, key: parts[1] + "|" + parts[2], spotifyURL: parts[7])
     }
 

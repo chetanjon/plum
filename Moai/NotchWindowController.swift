@@ -25,6 +25,12 @@ final class DropHostingView<Content: View>: NSHostingView<Content> {
     var onTargeted: ((Bool) -> Void)?
     /// A voice session owns the island; drags are refused outright.
     var acceptsDrop: (() -> Bool)?
+    /// The drag crossed into the panel / left it without dropping.
+    /// These run synchronously inside the drag callout, so the island
+    /// can open under the drag and offer its body as the target,
+    /// well clear of Mission Control's top-edge reveal.
+    var onDragEntered: (() -> Void)?
+    var onDragExited: (() -> Void)?
 
     func enableDrops() {
         registerForDraggedTypes([
@@ -37,6 +43,7 @@ final class DropHostingView<Content: View>: NSHostingView<Content> {
     override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
         guard acceptsDrop?() ?? true else { return [] }
         onTargeted?(true)
+        onDragEntered?()
         return .copy
     }
 
@@ -46,6 +53,7 @@ final class DropHostingView<Content: View>: NSHostingView<Content> {
 
     override func draggingExited(_ sender: NSDraggingInfo?) {
         onTargeted?(false)
+        onDragExited?()
     }
 
     /// Fires however the session ends, even a drop stolen by another
@@ -185,6 +193,16 @@ final class NotchWindowController {
         }
         hosting.acceptsDrop = { [weak viewModel] in
             viewModel?.state != .listening
+        }
+        hosting.onDragEntered = { [weak viewModel] in
+            guard let viewModel, viewModel.state == .collapsed else { return }
+            viewModel.dragExpanded = true
+            viewModel.expand()
+        }
+        hosting.onDragExited = { [weak viewModel] in
+            guard let viewModel, viewModel.dragExpanded else { return }
+            viewModel.dragExpanded = false
+            viewModel.collapse()
         }
         hosting.onDrop = { [weak viewModel] items in
             viewModel?.receiveDrop(items)

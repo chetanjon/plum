@@ -1,13 +1,72 @@
 import AppKit
 
+/// Built-in one-tap actions, the genuinely useful ones. Each can live
+/// on the Shortcuts grid next to apps and links.
+enum SystemAction: String, CaseIterable, Codable {
+    case screenshot
+    case lockScreen
+    case darkMode
+    case emptyTrash
+
+    var title: String {
+        switch self {
+        case .screenshot: return "Screenshot"
+        case .lockScreen: return "Lock Screen"
+        case .darkMode: return "Dark Mode"
+        case .emptyTrash: return "Empty Trash"
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .screenshot: return "camera.viewfinder"
+        case .lockScreen: return "lock.fill"
+        case .darkMode: return "circle.lefthalf.filled"
+        case .emptyTrash: return "trash"
+        }
+    }
+
+    func run() {
+        switch self {
+        case .screenshot:
+            // Interactive area capture straight to the clipboard; the
+            // island has already slipped shut by the time this runs.
+            let capture = Process()
+            capture.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
+            capture.arguments = ["-ic"]
+            try? capture.run()
+        case .lockScreen:
+            let sleep = Process()
+            sleep.executableURL = URL(fileURLWithPath: "/usr/bin/pmset")
+            sleep.arguments = ["displaysleepnow"]
+            try? sleep.run()
+        case .darkMode:
+            Self.runScript(
+                "tell application \"System Events\" to tell appearance preferences"
+                    + " to set dark mode to not dark mode"
+            )
+        case .emptyTrash:
+            Self.runScript("tell application \"Finder\" to empty trash")
+        }
+    }
+
+    private static func runScript(_ source: String) {
+        var error: NSDictionary?
+        NSAppleScript(source: source)?.executeAndReturnError(&error)
+    }
+}
+
 /// User-defined quick links: websites, apps, folders, anything
-/// NSWorkspace can open. Persisted as JSON in UserDefaults.
+/// NSWorkspace can open, plus built-in actions. Persisted as JSON
+/// in UserDefaults.
 @MainActor
 final class ShortcutStore: ObservableObject {
     struct Shortcut: Identifiable, Codable, Equatable {
         var id = UUID()
         var title: String
         var link: String
+        /// Set for built-in actions; `link` is empty then.
+        var action: SystemAction?
     }
 
     @Published private(set) var shortcuts: [Shortcut] = [] {
@@ -31,12 +90,28 @@ final class ShortcutStore: ObservableObject {
         shortcuts.append(Shortcut(title: name, link: cleanLink))
     }
 
+    func add(action: SystemAction) {
+        guard !shortcuts.contains(where: { $0.action == action }) else { return }
+        shortcuts.append(Shortcut(title: action.title, link: "", action: action))
+    }
+
+    /// Actions not on the grid yet, offered by the add flow.
+    var remainingActions: [SystemAction] {
+        SystemAction.allCases.filter { action in
+            !shortcuts.contains { $0.action == action }
+        }
+    }
+
     func remove(_ shortcut: Shortcut) {
         shortcuts.removeAll { $0.id == shortcut.id }
     }
 
     @discardableResult
     func open(_ shortcut: Shortcut) -> Bool {
+        if let action = shortcut.action {
+            action.run()
+            return true
+        }
         guard let url = Self.resolvedURL(for: shortcut.link) else { return false }
         return NSWorkspace.shared.open(url)
     }

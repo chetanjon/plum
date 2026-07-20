@@ -334,13 +334,6 @@ struct NotchRootView: View {
                     .padding(.leading, hasLeftWing ? 0 : Theme.Space.wingInset)
             }
             Spacer()
-            if hasLeftWing || model.isHovering {
-                Image(systemName: "sparkles")
-                    .font(Theme.Fonts.icon(.s))
-                    .foregroundStyle(model.isHovering ? Theme.textSecondary : Theme.textTertiary)
-                    .symbolEffect(.bounce, value: model.isHovering)
-                    .padding(.trailing, batteryVisible ? Theme.Space.s : Theme.Space.l)
-            }
             if batteryVisible, let battery = stats.battery {
                 HStack(spacing: 2) {
                     if battery.charging {

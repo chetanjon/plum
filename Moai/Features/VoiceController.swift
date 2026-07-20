@@ -19,7 +19,6 @@ final class VoiceController: NSObject, ObservableObject {
     private var availabilityHint: String?
 
     func begin() {
-        SFSpeechRecognizer.requestAuthorization { _ in }
         transcript = ""
         level = 0
         failure = nil
@@ -27,13 +26,53 @@ final class VoiceController: NSObject, ObservableObject {
         finishTimeout = nil
         finishCompletion = nil
 
-        switch SFSpeechRecognizer.authorizationStatus() {
-        case .denied, .restricted:
-            failure = "Speech recognition is off. System Settings, Privacy, Speech Recognition."
-            return
+        // The mic first: without it the tap hears pure silence and the
+        // session ends in "heard nothing" with no clue why. Ask
+        // explicitly instead of hoping the engine start triggers it.
+        switch AVCaptureDevice.authorizationStatus(for: .audio) {
+        case .authorized:
+            ensureSpeechAuthorization()
+        case .notDetermined:
+            AVCaptureDevice.requestAccess(for: .audio) { [weak self] granted in
+                Task { @MainActor in
+                    guard let self else { return }
+                    if granted {
+                        self.ensureSpeechAuthorization()
+                    } else {
+                        self.failure = "Mic access is off. System Settings, Privacy, Microphone."
+                    }
+                }
+            }
         default:
-            break
+            failure = "Mic access is off. System Settings, Privacy, Microphone."
         }
+    }
+
+    /// Speech recognition consent, awaited on first run rather than
+    /// fired and forgotten (which let the first session start while
+    /// the prompt was still on screen and hear nothing).
+    private func ensureSpeechAuthorization() {
+        switch SFSpeechRecognizer.authorizationStatus() {
+        case .authorized:
+            startCapture()
+        case .notDetermined:
+            SFSpeechRecognizer.requestAuthorization { [weak self] status in
+                Task { @MainActor in
+                    guard let self else { return }
+                    if status == .authorized {
+                        self.startCapture()
+                    } else {
+                        self.failure = "Speech recognition is off."
+                            + " System Settings, Privacy, Speech Recognition."
+                    }
+                }
+            }
+        default:
+            failure = "Speech recognition is off. System Settings, Privacy, Speech Recognition."
+        }
+    }
+
+    private func startCapture() {
         guard let recognizer else {
             failure = "Speech recognition isn't available on this Mac."
             return
@@ -79,8 +118,20 @@ final class VoiceController: NSObject, ObservableObject {
             return
         }
 
-        task = recognizer.recognitionTask(with: request) { [weak self] result, _ in
-            guard let result else { return }
+        task = recognizer.recognitionTask(with: request) { [weak self] result, error in
+            guard let result else {
+                // Recognition died without producing anything, name it
+                // instead of swallowing it into "heard nothing".
+                if error != nil {
+                    Task { @MainActor in
+                        guard let self, self.request === request,
+                              self.transcript.isEmpty, self.failure == nil else { return }
+                        self.failure = self.availabilityHint
+                            ?? "Speech recognition hit an error, try again."
+                    }
+                }
+                return
+            }
             let text = result.bestTranscription.formattedString
             let isFinal = result.isFinal
             Task { @MainActor in

@@ -12,7 +12,7 @@ struct ShelfView: View {
 
     var body: some View {
         if shelf.items.isEmpty {
-            EmptyPaneHint(message: "Drop files, links, or images on the notch to stash them here.")
+            EmptyPaneHint(message: "Drop files or links on the notch to stash them here.")
         } else {
             ScrollView {
                 VStack(spacing: Theme.Space.s) {

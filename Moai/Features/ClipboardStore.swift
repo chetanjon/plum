@@ -58,6 +58,15 @@ final class ClipboardStore: ObservableObject {
         }
     }
 
+    /// An image dropped on the island (a screenshot thumbnail, a
+    /// picture from the browser); joins history like a copied image.
+    @discardableResult
+    func addImage(_ image: NSImage) -> Bool {
+        guard let url = Self.savePNG(image) else { return false }
+        insert(Clip(date: Date(), imageURL: url))
+        return true
+    }
+
     /// A text snippet dropped on the island; same rules as a copy.
     @discardableResult
     func addText(_ text: String) -> Bool {

@@ -37,6 +37,10 @@ final class NotchViewModel: ObservableObject {
     /// A drag is hovering the island: light the accent edge.
     @Published var isDropTargeted = false
 
+    /// The island opened itself for an incoming drag; if the drag
+    /// leaves without dropping it closes again.
+    var dragExpanded = false
+
     /// Pointer position across the island, 0...1, published by the
     /// window controller's hover poll, quantized so casual movement
     /// costs a few re-renders per second, not twenty. nil = no light.
@@ -208,12 +212,13 @@ final class NotchViewModel: ObservableObject {
     }
 
     /// Content dropped on the island, delivered from the panel's AppKit
-    /// drag handler (SwiftUI's onDrop never fires in this panel). Files,
-    /// images and links stash on the shelf; text joins the clipboard.
-    /// The island only opens when something actually landed.
+    /// drag handler (SwiftUI's onDrop never fires in this panel). Files
+    /// and links stash on the shelf; images and text join the clipboard,
+    /// ready to paste. The island only opens when something landed.
     func receiveDrop(_ items: [DroppedItem]) {
         // The hosting view already refuses drags mid-voice; belt and braces.
         guard state != .listening else { return }
+        dragExpanded = false
         var landedShelf = false
         var landedClip = false
         for item in items {
@@ -222,7 +227,7 @@ final class NotchViewModel: ObservableObject {
                 shelf.add(url)
                 landedShelf = true
             case .image(let image):
-                if shelf.addImage(image) { landedShelf = true }
+                if clipboard.addImage(image) { landedClip = true }
             case .link(let url):
                 if shelf.addLink(url) { landedShelf = true }
             case .text(let text):

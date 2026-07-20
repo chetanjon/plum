@@ -1,7 +1,10 @@
+import AppKit
 import SwiftUI
+import UniformTypeIdentifiers
 
 /// The Go tab: a quiet grid of user-defined shortcuts, websites,
-/// apps, folders. Click to launch and the island slips shut.
+/// apps, folders, and built-in actions. Click to launch and the
+/// island slips shut.
 struct ShortcutsView: View {
     @ObservedObject var model: NotchViewModel
     @ObservedObject var store: ShortcutStore
@@ -21,6 +24,7 @@ struct ShortcutsView: View {
         VStack(alignment: .leading, spacing: Theme.Space.m) {
             if adding {
                 addRow
+                quickAddRow
             }
             if store.shortcuts.isEmpty && !adding {
                 EmptyPaneHint(message: "Save the places you jump to, sites, apps, folders.") {
@@ -111,6 +115,60 @@ struct ShortcutsView: View {
         .moaiField(active: linkFieldFocused)
     }
 
+    /// The faster paths: browse for an app, or tap a built-in action.
+    private var quickAddRow: some View {
+        HStack(spacing: Theme.Space.s) {
+            quickChip(title: "App…", symbol: "macwindow") { pickApp() }
+            ForEach(store.remainingActions, id: \.self) { action in
+                quickChip(title: action.title, symbol: action.symbol) {
+                    store.add(action: action)
+                    adding = false
+                }
+            }
+        }
+    }
+
+    private func quickChip(
+        title: String,
+        symbol: String,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            HStack(spacing: Theme.Space.xs) {
+                Image(systemName: symbol)
+                    .font(Theme.Fonts.icon(.xs))
+                Text(title)
+                    .font(Theme.Fonts.caption)
+            }
+            .foregroundStyle(Theme.textSecondary)
+            .padding(.horizontal, Theme.Space.s)
+            .frame(minHeight: 22)
+            .background(Capsule().fill(Theme.surface))
+            .overlay(Capsule().strokeBorder(Theme.hairlineFaint, lineWidth: 1))
+            .contentShape(Capsule())
+        }
+        .buttonStyle(PressableStyle())
+    }
+
+    /// Browse installed apps instead of typing a path.
+    private func pickApp() {
+        let panel = NSOpenPanel()
+        panel.directoryURL = URL(fileURLWithPath: "/Applications")
+        panel.allowedContentTypes = [.application]
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.message = "Pick an app to add to Shortcuts"
+        NSApp.activate(ignoringOtherApps: true)
+        let store = self.store
+        panel.begin { response in
+            guard response == .OK, let url = panel.url else { return }
+            Task { @MainActor in
+                store.add(title: "", link: url.path)
+            }
+        }
+        adding = false
+    }
+
     private func beginAdding() {
         draftTitle = ""
         draftLink = ""
@@ -171,7 +229,16 @@ private struct ShortcutChip: View {
 
     private var icon: some View {
         Group {
-            if let fileIcon = ShortcutStore.fileIcon(for: shortcut.link) {
+            if let action = shortcut.action {
+                ZStack {
+                    Circle()
+                        .fill(accent.opacity(0.14))
+                    Image(systemName: action.symbol)
+                        .font(Theme.Fonts.icon(.s))
+                        .foregroundStyle(accent)
+                }
+                .frame(width: 26, height: 26)
+            } else if let fileIcon = ShortcutStore.fileIcon(for: shortcut.link) {
                 Image(nsImage: fileIcon)
                     .resizable()
                     .frame(width: 26, height: 26)

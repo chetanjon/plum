@@ -115,6 +115,9 @@ struct ExpandedView: View {
             if showMedia, music.nowPlaying != nil {
                 MusicRow(music: music)
             } else {
+                if showMedia {
+                    MusicLaunchChip(music: music)
+                }
                 Spacer(minLength: 0)
             }
             MicButton { model.toggleListening() }
@@ -161,6 +164,39 @@ struct ExpandedView: View {
         }
         SettingsPane(music: music)
             .frame(height: Theme.Panel.settings)
+    }
+}
+
+/// Nothing playing: one quiet chip that opens your player, so music
+/// is a click away instead of a dock hunt.
+private struct MusicLaunchChip: View {
+    @ObservedObject var music: MusicController
+    @State private var hovered = false
+
+    private var label: String {
+        music.preferredApp.map { "Open \($0.rawValue)" } ?? "Open YouTube Music"
+    }
+
+    var body: some View {
+        Button {
+            music.openMusicApp()
+        } label: {
+            HStack(spacing: Theme.Space.snug) {
+                Image(systemName: "music.note")
+                    .font(Theme.Fonts.icon(.xs))
+                Text(label)
+                    .font(Theme.Fonts.caption)
+            }
+            .foregroundStyle(hovered ? Theme.textSecondary : Theme.textTertiary)
+            .padding(.horizontal, Theme.Space.s)
+            .frame(minHeight: 22)
+            .background(Capsule().fill(Color.white.opacity(hovered ? 0.06 : 0)))
+            .contentShape(Capsule())
+        }
+        .buttonStyle(PressableStyle())
+        .help(label)
+        .onHover { hovered = $0 }
+        .animation(Theme.Motion.hover, value: hovered)
     }
 }
 

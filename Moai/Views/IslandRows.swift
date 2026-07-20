@@ -12,7 +12,13 @@ struct MusicRow: View {
     var body: some View {
         if let playing = music.nowPlaying {
             HStack(spacing: Theme.Space.l) {
-                artworkView(isPlaying: playing.isPlaying)
+                Button {
+                    music.openMusicApp()
+                } label: {
+                    artworkView(isPlaying: playing.isPlaying)
+                }
+                .buttonStyle(PressableStyle())
+                .help("Open \(playing.app.rawValue)")
 
                 VStack(alignment: .leading, spacing: Theme.Space.snug) {
                     HStack(spacing: Theme.Space.s) {

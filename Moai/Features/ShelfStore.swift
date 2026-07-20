@@ -26,21 +26,6 @@ final class ShelfStore: ObservableObject {
         save()
     }
 
-    /// A dropped image with no file behind it (a screenshot thumbnail):
-    /// write a PNG into the app's own folder, then stash that. The
-    /// uuid suffix keeps several drops in one second from colliding.
-    @discardableResult
-    func addImage(_ image: NSImage) -> Bool {
-        guard let tiff = image.tiffRepresentation,
-              let rep = NSBitmapImageRep(data: tiff),
-              let png = rep.representation(using: .png, properties: [:]) else { return false }
-        let name = "Shot-\(Int(Date().timeIntervalSince1970))-\(Self.uniqueSuffix()).png"
-        let url = Self.droppedDirectory().appendingPathComponent(name)
-        guard (try? png.write(to: url)) != nil else { return false }
-        add(url)
-        return true
-    }
-
     /// A dragged web link becomes a .webloc in the app's folder, so it
     /// rides the same bookmark persistence as any stashed file.
     @discardableResult

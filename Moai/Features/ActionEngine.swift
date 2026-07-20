@@ -46,6 +46,28 @@ final class ActionEngine {
             return "Quiet."
         }
 
+        // Reminders you already have: list them, or tick one off. Run
+        // before the create-reminder prefixes so "complete X" and
+        // "my reminders" aren't mistaken for new reminders.
+        if ["reminders", "my reminders", "what are my reminders",
+            "show reminders", "show my reminders", "what's due", "whats due"].contains(lower) {
+            return await model.events.remindersSummary()
+        }
+        for prefix in ["done with ", "complete ", "completed ", "finish ",
+                       "finished ", "check off ", "tick off "]
+        where lower.hasPrefix(prefix) {
+            let rest = String(text.dropFirst(prefix.count)).trimmingCharacters(in: .whitespaces)
+            return await model.events.completeByVoice(rest)
+        }
+        if lower.hasPrefix("mark ") {
+            var rest = String(text.dropFirst(5)).trimmingCharacters(in: .whitespaces)
+            for suffix in [" as done", " as complete", " done", " complete", " off"]
+            where rest.lowercased().hasSuffix(suffix) {
+                rest = String(rest.dropLast(suffix.count)).trimmingCharacters(in: .whitespaces)
+                return await model.events.completeByVoice(rest)
+            }
+        }
+
         // Reminders. Prefix verbs are unambiguous, so they run before
         // the fuzzy contains() branches below can hijack them. Spoken
         // phrasing varies — "set a reminder for X" must work as well as
@@ -153,9 +175,14 @@ final class ActionEngine {
             return "Back one."
         }
 
-        // Agenda
-        if lower == "agenda" || lower == "today" || lower.contains("calendar") {
-            return await model.events.agendaToday()
+        // Agenda — today or tomorrow
+        let agendaish = ["agenda", "today", "tomorrow"].contains(lower)
+            || lower.contains("calendar")
+            || lower.contains("what's on") || lower.contains("whats on")
+            || lower.contains("my agenda") || lower.contains("my schedule")
+            || lower.contains("what's my day") || lower.contains("whats my day")
+        if agendaish {
+            return await model.events.agenda(dayOffset: lower.contains("tomorrow") ? 1 : 0)
         }
 
         // Reminder recovery: speech sometimes garbles the opening verb

@@ -126,7 +126,11 @@ struct ExpandedView: View {
         switch model.tab {
         case .today:
             if todayEnabled {
-                TodayView(showCalendar: showCalendar, showReminders: showReminders)
+                TodayView(
+                    events: model.events,
+                    showCalendar: showCalendar,
+                    showReminders: showReminders
+                )
             } else {
                 AnswerView(model: model)
             }
@@ -183,36 +187,85 @@ private struct MicButton: View {
 }
 
 /// Your day, shown only when turned on. Calendar and reminders are
-/// independent blocks. (Live EventKit data is wired in a later pass;
-/// this is the shape.)
+/// independent blocks; reminders tick off in place. Live from EventKit.
 struct TodayView: View {
+    @ObservedObject var events: EventKitService
     let showCalendar: Bool
     let showReminders: Bool
+    @Environment(\.moaiAccent) private var accent
 
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Space.l) {
-            if showCalendar {
-                block("Today", "Your events appear here.")
-            }
-            if showReminders {
-                block("Reminders", "Your open reminders appear here.")
-            }
+            if showCalendar { calendarBlock }
+            if showReminders { remindersBlock }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        .task { await events.refresh() }
     }
 
-    private func block(_ title: String, _ line: String) -> some View {
+    private var calendarBlock: some View {
         VStack(alignment: .leading, spacing: Theme.Space.s) {
-            HStack(spacing: Theme.Space.s) {
-                Text(title.uppercased())
-                    .font(Theme.Fonts.micro)
-                    .tracking(1.3)
-                    .foregroundStyle(Theme.textTertiary)
-                Rectangle().fill(Theme.hairlineFaint).frame(height: 1)
+            header("Today")
+            if events.events.isEmpty {
+                Text("Nothing today.")
+                    .font(Theme.Fonts.body)
+                    .foregroundStyle(Theme.textHint)
+            } else {
+                ForEach(events.events) { event in
+                    HStack(spacing: Theme.Space.m) {
+                        Text(event.time)
+                            .font(Theme.Fonts.captionMono)
+                            .foregroundStyle(Theme.textTertiary)
+                            .frame(width: 62, alignment: .leading)
+                        Circle().fill(accent).frame(width: 5, height: 5)
+                        Text(event.title)
+                            .font(Theme.Fonts.body)
+                            .foregroundStyle(Theme.textPrimary)
+                            .lineLimit(1)
+                    }
+                }
             }
-            Text(line)
-                .font(Theme.Fonts.body)
-                .foregroundStyle(Theme.textHint)
+        }
+    }
+
+    private var remindersBlock: some View {
+        VStack(alignment: .leading, spacing: Theme.Space.s) {
+            header("Reminders")
+            if events.reminders.isEmpty {
+                Text("Nothing open.")
+                    .font(Theme.Fonts.body)
+                    .foregroundStyle(Theme.textHint)
+            } else {
+                ForEach(events.reminders) { reminder in
+                    Button {
+                        Task { await events.complete(reminder) }
+                    } label: {
+                        HStack(spacing: Theme.Space.m) {
+                            Image(systemName: "circle")
+                                .font(Theme.Fonts.icon(.s))
+                                .foregroundStyle(Theme.textTertiary)
+                            Text(reminder.title)
+                                .font(Theme.Fonts.body)
+                                .foregroundStyle(Theme.textPrimary)
+                                .lineLimit(1)
+                            Spacer(minLength: 0)
+                        }
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(PressableStyle())
+                    .help("Mark done")
+                }
+            }
+        }
+    }
+
+    private func header(_ title: String) -> some View {
+        HStack(spacing: Theme.Space.s) {
+            Text(title.uppercased())
+                .font(Theme.Fonts.micro)
+                .tracking(1.3)
+                .foregroundStyle(Theme.textTertiary)
+            Rectangle().fill(Theme.hairlineFaint).frame(height: 1)
         }
     }
 }

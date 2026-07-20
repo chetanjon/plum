@@ -9,26 +9,40 @@ final class NotchPanel: NSPanel {
     override var canBecomeMain: Bool { false }
 }
 
+/// One dragged pasteboard item, resolved to exactly one flavor.
+enum DroppedItem {
+    case file(URL)
+    case image(NSImage)
+    case link(URL)
+    case text(String)
+}
+
 /// The panel's hosting view, extended to receive drags. Drops must be
 /// handled by the island's own (frontmost) window, so the panel level is
 /// lowered enough that macOS routes drags to it.
 final class DropHostingView<Content: View>: NSHostingView<Content> {
-    var onDrop: (([URL], [NSImage]) -> Void)?
+    var onDrop: (([DroppedItem]) -> Void)?
     var onTargeted: ((Bool) -> Void)?
+    /// A voice session owns the island; drags are refused outright.
+    var acceptsDrop: (() -> Bool)?
 
     func enableDrops() {
         registerForDraggedTypes([
             .fileURL, .png, .tiff,
             NSPasteboard.PasteboardType(UTType.image.identifier),
+            .URL, .string,
         ])
     }
 
     override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
+        guard acceptsDrop?() ?? true else { return [] }
         onTargeted?(true)
         return .copy
     }
 
-    override func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation { .copy }
+    override func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation {
+        acceptsDrop?() ?? true ? .copy : []
+    }
 
     override func draggingExited(_ sender: NSDraggingInfo?) {
         onTargeted?(false)
@@ -36,25 +50,36 @@ final class DropHostingView<Content: View>: NSHostingView<Content> {
 
     override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
         onTargeted?(false)
-        let pasteboard = sender.draggingPasteboard
-
-        var urls: [URL] = []
-        if let objects = pasteboard.readObjects(
-            forClasses: [NSURL.self],
-            options: [.urlReadingFileURLsOnly: true]
-        ) as? [URL] {
-            urls = objects
-        }
-
-        var images: [NSImage] = []
-        if urls.isEmpty,
-           let objects = pasteboard.readObjects(forClasses: [NSImage.self], options: nil) as? [NSImage] {
-            images = objects
-        }
-
-        guard !urls.isEmpty || !images.isEmpty else { return false }
-        onDrop?(urls, images)
+        guard acceptsDrop?() ?? true else { return false }
+        let items = (sender.draggingPasteboard.pasteboardItems ?? [])
+            .compactMap(Self.resolve)
+        guard !items.isEmpty else { return false }
+        onDrop?(items)
         return true
+    }
+
+    /// First matching flavor wins: a Finder image drag also carries
+    /// image data, it must land once, as the file. A plain string that
+    /// happens to be a URL stays text; only real url flavors are links.
+    private static func resolve(_ item: NSPasteboardItem) -> DroppedItem? {
+        if let raw = item.string(forType: .fileURL),
+           let url = URL(string: raw)?.standardizedFileURL, url.isFileURL {
+            return .file(url)
+        }
+        if let type = item.types.first(where: { UTType($0.rawValue)?.conforms(to: .image) == true }),
+           let data = item.data(forType: type),
+           let image = NSImage(data: data) {
+            return .image(image)
+        }
+        if let raw = item.string(forType: .URL),
+           let url = URL(string: raw), url.scheme != nil, !url.isFileURL {
+            return .link(url)
+        }
+        if let raw = item.string(forType: .string),
+           !raw.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return .text(raw)
+        }
+        return nil
     }
 }
 
@@ -151,8 +176,11 @@ final class NotchWindowController {
         hosting.onTargeted = { [weak viewModel] targeted in
             viewModel?.isDropTargeted = targeted
         }
-        hosting.onDrop = { [weak viewModel] urls, images in
-            viewModel?.receiveDrop(urls: urls, images: images)
+        hosting.acceptsDrop = { [weak viewModel] in
+            viewModel?.state != .listening
+        }
+        hosting.onDrop = { [weak viewModel] items in
+            viewModel?.receiveDrop(items)
         }
         panel.contentView = hosting
 

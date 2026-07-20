@@ -207,20 +207,30 @@ final class NotchViewModel: ObservableObject {
         state = .collapsed
     }
 
-    /// Files or images dropped on the island, delivered from the panel's
-    /// AppKit drag handler (SwiftUI's onDrop never fires in this panel).
-    func receiveDrop(urls: [URL], images: [NSImage]) {
-        var stashed = false
-        for url in urls where url.isFileURL {
-            shelf.add(url)
-            stashed = true
+    /// Content dropped on the island, delivered from the panel's AppKit
+    /// drag handler (SwiftUI's onDrop never fires in this panel). Files,
+    /// images and links stash on the shelf; text joins the clipboard.
+    /// The island only opens when something actually landed.
+    func receiveDrop(_ items: [DroppedItem]) {
+        // The hosting view already refuses drags mid-voice; belt and braces.
+        guard state != .listening else { return }
+        var landedShelf = false
+        var landedClip = false
+        for item in items {
+            switch item {
+            case .file(let url):
+                shelf.add(url)
+                landedShelf = true
+            case .image(let image):
+                if shelf.addImage(image) { landedShelf = true }
+            case .link(let url):
+                if shelf.addLink(url) { landedShelf = true }
+            case .text(let text):
+                if clipboard.addText(text) { landedClip = true }
+            }
         }
-        for image in images {
-            shelf.addImage(image)
-            stashed = true
-        }
-        guard stashed else { return }
-        tab = .shelf
+        guard landedShelf || landedClip else { return }
+        tab = landedShelf ? .shelf : .clipboard
         expand()
     }
 

@@ -58,6 +58,17 @@ final class ClipboardStore: ObservableObject {
         }
     }
 
+    /// A text snippet dropped on the island; same rules as a copy.
+    @discardableResult
+    func addText(_ text: String) -> Bool {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return false }
+        // Already at the top of the history: that counts as landed.
+        if clips.first?.text == text { return true }
+        insert(Clip(date: Date(), text: text))
+        return true
+    }
+
     private func insert(_ clip: Clip) {
         clips.insert(clip, at: 0)
         if clips.count > maxClips {

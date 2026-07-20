@@ -41,14 +41,85 @@ struct FocusPanel: View {
                 }
             }
             .padding(.top, Theme.Space.xs)
-            if let line = stats.summary {
-                Text(line)
-                    .font(Theme.Fonts.caption)
-                    .foregroundStyle(Theme.textTertiary)
-                    .padding(.top, Theme.Space.xs)
+            if !stats.days.isEmpty {
+                statsBlock
+                    .padding(.top, Theme.Space.s)
             }
             Spacer(minLength: 0)
         }
+    }
+
+    // MARK: Quiet analytics: a week of bars, the numbers that matter
+
+    private var statsBlock: some View {
+        HStack(alignment: .bottom, spacing: Theme.Space.xl) {
+            HStack(alignment: .bottom, spacing: Theme.Space.s) {
+                ForEach(stats.lastWeek) { slice in
+                    VStack(spacing: 3) {
+                        Capsule()
+                            .fill(
+                                slice.isToday
+                                    ? AnyShapeStyle(accent)
+                                    : AnyShapeStyle(Color.white.opacity(0.14))
+                            )
+                            .frame(width: 4, height: barHeight(slice))
+                        Text(Self.dayLetter(slice.day))
+                            .font(Theme.Fonts.micro)
+                            .foregroundStyle(slice.isToday ? Theme.textTertiary : Theme.textGhost)
+                    }
+                    .help("\(Self.dayName(slice.day)), \(FocusStatsStore.clock(slice.minutes))")
+                }
+            }
+            Spacer(minLength: 0)
+            VStack(alignment: .trailing, spacing: 3) {
+                if stats.todayMinutes > 0 {
+                    Text("\(FocusStatsStore.clock(stats.todayMinutes)) today")
+                        .font(Theme.Fonts.captionMono)
+                        .foregroundStyle(Theme.textSecondary)
+                }
+                Text("\(FocusStatsStore.clock(stats.weekMinutes)) this week")
+                    .font(Theme.Fonts.microMono)
+                    .foregroundStyle(Theme.textTertiary)
+                if stats.streak >= 2 {
+                    HStack(spacing: 3) {
+                        Image(systemName: "flame.fill")
+                            .font(Theme.Fonts.icon(.xs))
+                            .foregroundStyle(accent)
+                        Text("\(stats.streak) days")
+                            .font(Theme.Fonts.caption)
+                            .foregroundStyle(Theme.textSecondary)
+                    }
+                }
+            }
+        }
+    }
+
+    /// Bars scale to the week's best day; a worked day never drops
+    /// below a visible stub, an empty day stays a quiet dot.
+    private func barHeight(_ slice: FocusStatsStore.DaySlice) -> CGFloat {
+        let top = stats.lastWeek.map(\.minutes).max() ?? 0
+        guard top > 0, slice.minutes > 0 else { return 3 }
+        return 5 + 19 * CGFloat(slice.minutes) / CGFloat(top)
+    }
+
+    private static let letterFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "EEEEE"
+        return formatter
+    }()
+
+    private static let nameFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "EEEE"
+        return formatter
+    }()
+
+    private static func dayLetter(_ day: Date) -> String {
+        letterFormatter.string(from: day)
+    }
+
+    private static func dayName(_ day: Date) -> String {
+        nameFormatter.string(from: day)
     }
 
     private func timerChip(_ minutes: Int) -> some View {

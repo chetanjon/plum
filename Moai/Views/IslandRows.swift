@@ -40,28 +40,36 @@ struct MusicRow: View {
                                 .transition(.opacity)
                         }
                     }
-                    Slider(
-                        value: Binding(
-                            get: { scrubPosition ?? playing.position },
-                            set: { scrubPosition = $0 }
-                        ),
-                        in: 0...max(playing.duration, 1),
-                        onEditingChanged: { editing in
-                            if !editing, let target = scrubPosition {
-                                music.seek(to: target)
-                                scrubPosition = nil
+                    // Position is projected between the player's 1s
+                    // polls, so the knob and clock glide instead of
+                    // stepping once a second.
+                    TimelineView(.periodic(from: .now, by: 0.5)) { context in
+                        let livePosition = music.position(at: context.date)
+                        VStack(alignment: .leading, spacing: Theme.Space.snug) {
+                            Slider(
+                                value: Binding(
+                                    get: { scrubPosition ?? livePosition },
+                                    set: { scrubPosition = $0 }
+                                ),
+                                in: 0...max(playing.duration, 1),
+                                onEditingChanged: { editing in
+                                    if !editing, let target = scrubPosition {
+                                        music.seek(to: target)
+                                        scrubPosition = nil
+                                    }
+                                }
+                            )
+                            .controlSize(.mini)
+                            .tint(accent)
+                            HStack {
+                                Text(Self.clock(scrubPosition ?? livePosition))
+                                Spacer()
+                                Text(Self.clock(playing.duration))
                             }
+                            .font(Theme.Fonts.microMono)
+                            .foregroundStyle(Theme.textGhost)
                         }
-                    )
-                    .controlSize(.mini)
-                    .tint(accent)
-                    HStack {
-                        Text(Self.clock(scrubPosition ?? playing.position))
-                        Spacer()
-                        Text(Self.clock(playing.duration))
                     }
-                    .font(Theme.Fonts.microMono)
-                    .foregroundStyle(Theme.textGhost)
                 }
 
                 VStack(spacing: Theme.Space.xs) {
@@ -103,12 +111,17 @@ struct MusicRow: View {
                         Slider(
                             value: Binding(
                                 get: { volumeOverride ?? playing.volume },
-                                set: { volumeOverride = $0 }
+                                set: { value in
+                                    volumeOverride = value
+                                    // Applied live but debounced, so the
+                                    // drag feels attached to the sound.
+                                    music.previewVolume(value)
+                                }
                             ),
                             in: 0...100,
                             onEditingChanged: { editing in
                                 if !editing, let target = volumeOverride {
-                                    music.setVolume(target)
+                                    music.commitVolume(target)
                                     volumeOverride = nil
                                 }
                             }

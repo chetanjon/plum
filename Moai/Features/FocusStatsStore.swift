@@ -69,20 +69,36 @@ final class FocusStatsStore: ObservableObject {
         return run
     }
 
-    /// The one line the Focus pane shows, nil when there is nothing
-    /// worth saying. Never zeros.
-    var summary: String? {
-        var segments: [String] = []
-        if todaySessions > 0 {
-            segments.append("\(todayMinutes) min today")
-            segments.append(todaySessions == 1 ? "1 session" : "\(todaySessions) sessions")
+    struct DaySlice: Identifiable {
+        let day: Date
+        let minutes: Int
+        let isToday: Bool
+        var id: Date { day }
+    }
+
+    /// The last seven days, oldest first, zero-filled, for the
+    /// week sparkbar.
+    var lastWeek: [DaySlice] {
+        let today = calendar.startOfDay(for: Date())
+        return (0..<7).reversed().compactMap { offset in
+            guard let day = calendar.date(byAdding: .day, value: -offset, to: today) else {
+                return nil
+            }
+            let minutes = days.first { calendar.isDate($0.day, inSameDayAs: day) }?.minutes ?? 0
+            return DaySlice(day: day, minutes: minutes, isToday: offset == 0)
         }
-        let run = streak
-        if run >= 2 {
-            segments.append("\(run) day streak")
-        }
-        guard !segments.isEmpty else { return nil }
-        return segments.joined(separator: " · ")
+    }
+
+    var weekMinutes: Int {
+        lastWeek.reduce(0) { $0 + $1.minutes }
+    }
+
+    /// "26 min", "1h", "1h 24m": how focus time reads everywhere.
+    static func clock(_ minutes: Int) -> String {
+        if minutes < 60 { return "\(minutes) min" }
+        let hours = minutes / 60
+        let rest = minutes % 60
+        return rest == 0 ? "\(hours)h" : "\(hours)h \(rest)m"
     }
 
     private func save() {

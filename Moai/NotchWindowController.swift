@@ -48,6 +48,13 @@ final class DropHostingView<Content: View>: NSHostingView<Content> {
         onTargeted?(false)
     }
 
+    /// Fires however the session ends, even a drop stolen by another
+    /// window (Mission Control's top-edge reveal can do this), so the
+    /// accent edge never sticks on after an aborted drag.
+    override func draggingEnded(_ sender: NSDraggingInfo) {
+        onTargeted?(false)
+    }
+
     override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
         onTargeted?(false)
         guard acceptsDrop?() ?? true else { return false }

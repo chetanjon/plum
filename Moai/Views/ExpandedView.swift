@@ -194,7 +194,7 @@ struct ExpandedView: View {
                 .frame(height: Theme.Panel.focus)
         case .chat:
             ChatPane(chat: model.chat)
-                .frame(height: Theme.Panel.chat)
+                .frame(height: chatFull ? Theme.Panel.chatFull : Theme.Panel.chat)
         }
     }
 

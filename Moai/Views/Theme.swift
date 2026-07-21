@@ -164,9 +164,11 @@ enum Theme {
         /// the week of stats.
         static let focus: CGFloat = 280
         static let settings: CGFloat = 300
-        /// The chat pane's height; at 0.8 page zoom this reads as
-        /// nearly 490 points of page, plenty for a conversation.
-        static let chat: CGFloat = 390
+        /// Chat pane heights. Compact trims the dead space the page's
+        /// vertical centering leaves under the input; full keeps the
+        /// room the sidebar layout earns.
+        static let chat: CGFloat = 330
+        static let chatFull: CGFloat = 390
     }
 
     /// Motion personality, user-selectable in settings. Serene is the

@@ -128,6 +128,7 @@ final class NotchViewModel: ObservableObject {
     let voice = VoiceController()
     let stats = SystemStatsController()
     let shortcuts = ShortcutStore()
+    let updates = UpdateChecker()
     private(set) lazy var engine = ActionEngine(model: self)
 
     /// Default pill for notch-less displays, so Moai works on any Mac.
@@ -174,6 +175,10 @@ final class NotchViewModel: ObservableObject {
         clipboard.start()
         stats.start()
         events.startGlanceTicker()
+        updates.onNewVersion = { [weak self] version in
+            self?.flashGlance("\(version) is out", seconds: 8)
+        }
+        updates.start()
         showWelcomeIfFirstRun()
         #if DEBUG
         // Terminal-driven verb testing, Debug builds only. Keystrokes
@@ -227,6 +232,14 @@ final class NotchViewModel: ObservableObject {
                     }) {
                         self.shelf.remove(item)
                     }
+                    return
+                }
+                // "debug updatecheck <ver>" rehearses the stale path
+                // against the real releases feed.
+                if text.hasPrefix("debug updatecheck ") {
+                    let pretend = String(text.dropFirst("debug updatecheck ".count))
+                        .trimmingCharacters(in: .whitespaces)
+                    Task { await self.updates.check(pretendCurrent: pretend) }
                     return
                 }
                 // "debug welcome <n>" opens tour page n for screenshots.

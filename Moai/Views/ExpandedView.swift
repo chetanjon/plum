@@ -194,7 +194,7 @@ struct ExpandedView: View {
                 .foregroundStyle(Theme.textPrimary)
             Spacer()
         }
-        SettingsPane(music: music) {
+        SettingsPane(music: music, updates: model.updates) {
             withAnimation(Theme.Motion.content) { model.replayWelcome() }
         }
         .frame(height: Theme.Panel.settings)

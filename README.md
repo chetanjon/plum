@@ -8,7 +8,7 @@ The name: real moai are buried up to their shoulders. Ours is buried in the beze
 
 [**Latest release**](https://github.com/chetanjon/moai/releases/latest). Apple Silicon, macOS 14+, free.
 
-First open: macOS will ask once. System Settings, Privacy and Security, Open Anyway. Moai is unsigned because it is free and independent. Speech recognition is on-device, keys stay in your Keychain, and nothing phones home.
+First open: macOS will ask once. System Settings, Privacy and Security, Open Anyway. Moai is unsigned because it is free and independent. Speech recognition is on-device, keys stay in your Keychain, and the only thing Moai ever asks the internet is whether a newer version exists (a daily check against GitHub releases, switchable off in Settings).
 
 ## v1 feature set
 

@@ -5,8 +5,11 @@ import SwiftUI
 /// rows separated by hairlines instead of floating in a bare scroll.
 struct SettingsPane: View {
     @ObservedObject var music: MusicController
+    @ObservedObject var updates: UpdateChecker
     /// Reopens the first-run tour.
     var onReplayTour: (() -> Void)?
+
+    @AppStorage(UpdateChecker.settingKey) private var updateCheckOn = true
 
     @State private var launchAtLogin = false
     @State private var apiKeys: [AIProvider: String] = [:]
@@ -71,6 +74,8 @@ struct SettingsPane: View {
                     toggleRow("Open on hover", $expandOnHover)
                     divider
                     toggleRow("Show edge when idle", $idleEdgeOn)
+                    divider
+                    toggleRow("Check for new versions", $updateCheckOn)
                     divider
                     toggleRow("Start at login", Binding(
                         get: { launchAtLogin },
@@ -268,6 +273,16 @@ struct SettingsPane: View {
             Text("Moai\(version.map { " \($0)" } ?? "")")
                 .font(Theme.Fonts.caption)
                 .foregroundStyle(Theme.textTertiary)
+            if let latest = updates.latest {
+                Button {
+                    NSWorkspace.shared.open(UpdateChecker.downloadPage)
+                } label: {
+                    Text("Moai \(latest) is out. Get it.")
+                        .font(Theme.Fonts.caption)
+                        .foregroundStyle(accent)
+                }
+                .buttonStyle(.plain)
+            }
             Text("Motion follows the system Reduce Motion setting.")
                 .font(Theme.Fonts.caption)
                 .foregroundStyle(Theme.textGhost)

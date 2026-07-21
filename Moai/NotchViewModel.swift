@@ -38,9 +38,9 @@ final class NotchViewModel: ObservableObject {
     /// A drag is hovering the island: light the accent edge.
     @Published var isDropTargeted = false
 
-    /// A drag is in flight nearby (sensed by the poll, before AppKit
-    /// delivers it): the island opens with the drop card waiting.
-    @Published var dragApproaching = false
+    /// Debug builds show the drop bubble on request; the window
+    /// controller owns the panel, so it hangs the hook here.
+    var onDebugDropDock: (() -> Void)?
 
     /// The island opened itself for an incoming drag; if the drag
     /// leaves without dropping it closes again.
@@ -191,6 +191,11 @@ final class NotchViewModel: ObservableObject {
                     }
                     return
                 }
+                // "debug dropdock" shows the mid-screen drop bubble.
+                if text == "debug dropdock" {
+                    self.onDebugDropDock?()
+                    return
+                }
                 // "debug droptarget" shows the drop overlay briefly;
                 // real drags cannot be synthesized.
                 if text == "debug droptarget" {
@@ -242,7 +247,6 @@ final class NotchViewModel: ObservableObject {
     func collapse() {
         guard state == .expanded else { return }
         state = .collapsed
-        dragApproaching = false
         // The island always reopens small and clean.
         pane = .none
         tab = .today
@@ -349,7 +353,6 @@ final class NotchViewModel: ObservableObject {
         // The hosting view already refuses drags mid-voice; belt and braces.
         guard state != .listening else { return }
         dragExpanded = false
-        dragApproaching = false
         var landedShelf = false
         var landedClip = false
         for item in items {

@@ -230,6 +230,16 @@ final class NotchWindowController {
 
         viewModel.start()
 
+        // Debug-only: surface the drop bubble for screenshots.
+        viewModel.onDebugDropDock = { [weak self] in
+            guard let self, let screen = self.notchScreen else { return }
+            self.dockPinnedUntil = Date().addingTimeInterval(3)
+            self.showDropDock(on: screen)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self] in
+                self?.hideDropDock()
+            }
+        }
+
         // Voice from anywhere: the summon key toggles a listening
         // session without the mouse ever visiting the notch.
         summon = HotkeySummon { [weak self] in
@@ -364,44 +374,91 @@ final class NotchWindowController {
         }
     }
 
-    /// A drag rising toward the top-center opens the island early, so
-    /// the release lands on the tall card mid-screen and never visits
-    /// the top edge, whose Mission Control reveal cannot be disabled
-    /// for file drags on this macOS.
+    /// A drag rising toward the top of the screen summons the drop
+    /// bubble a third of the way down, nowhere near the top edge,
+    /// whose Mission Control reveal fires after ~2s of dwell and
+    /// cannot be disabled for file drags on this macOS. Held drags
+    /// hover the bubble safely for as long as they like.
     private func senseDrag(at location: NSPoint, on screen: NSScreen) {
+        guard Date() >= dockPinnedUntil else { return }
         let buttonDown = NSEvent.pressedMouseButtons & 1 != 0
         guard buttonDown else {
             dragBaseline = dragPasteboard.changeCount
-            if viewModel.dragApproaching {
-                endDragApproach()
-            }
+            hideDropDock()
             return
         }
         guard dragPasteboard.changeCount != dragBaseline else { return }
         let zone = NSRect(
             x: screen.frame.midX - 430,
-            y: screen.frame.maxY - screen.frame.height * 0.45,
+            y: screen.frame.maxY - screen.frame.height * 0.5,
             width: 860,
-            height: screen.frame.height * 0.45
+            height: screen.frame.height * 0.5
         )
-        if zone.contains(location) {
-            if viewModel.state == .collapsed {
-                viewModel.dragExpanded = true
-                viewModel.dragApproaching = true
-                viewModel.expand(takeKey: false)
-            }
-        } else if viewModel.dragApproaching, !viewModel.isDropTargeted {
-            endDragApproach()
+        // A drag already over the island uses the island itself.
+        if viewModel.isDropTargeted {
+            hideDropDock()
+        } else if zone.contains(location) {
+            showDropDock(on: screen)
+        } else if let dock = dropDock, dock.isVisible,
+                  !zone.insetBy(dx: -60, dy: -60).contains(location) {
+            hideDropDock()
         }
     }
 
-    /// The drag left without dropping: put everything back.
-    private func endDragApproach() {
-        viewModel.dragApproaching = false
-        if viewModel.dragExpanded, !viewModel.isDropTargeted {
-            viewModel.dragExpanded = false
-            viewModel.collapse()
+    // MARK: - Drop bubble
+
+    private var dropDock: NSPanel?
+
+    /// Built once: a small transparent panel whose whole face is the
+    /// dashed stash card, floating where a rising drag will meet it.
+    private func ensureDropDock() -> NSPanel {
+        if let dropDock { return dropDock }
+        let size = CGSize(width: 360, height: 200)
+        let panel = NSPanel(
+            contentRect: NSRect(origin: .zero, size: size),
+            styleMask: [.borderless, .nonactivatingPanel],
+            backing: .buffered,
+            defer: false
+        )
+        panel.level = .statusBar
+        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
+        panel.isOpaque = false
+        panel.backgroundColor = .clear
+        panel.hasShadow = true
+        panel.isMovable = false
+        let hosting = DropHostingView(rootView: DropStashCard().frame(width: size.width, height: size.height))
+        hosting.frame = NSRect(origin: .zero, size: size)
+        hosting.enableDrops()
+        hosting.acceptsDrop = { [weak viewModel] in
+            viewModel?.state != .listening
         }
+        hosting.onDrop = { [weak self] items in
+            self?.hideDropDock()
+            self?.viewModel.receiveDrop(items)
+        }
+        panel.contentView = hosting
+        dropDock = panel
+        return panel
+    }
+
+    /// While set, the sensing poll keeps its hands off the bubble
+    /// (debug previews have no real drag keeping them alive).
+    private var dockPinnedUntil = Date.distantPast
+
+    private func showDropDock(on screen: NSScreen) {
+        let dock = ensureDropDock()
+        guard !dock.isVisible else { return }
+        let size = dock.frame.size
+        dock.setFrameOrigin(NSPoint(
+            x: screen.frame.midX - size.width / 2,
+            y: screen.frame.maxY - screen.frame.height * 0.34 - size.height / 2
+        ))
+        dock.orderFrontRegardless()
+    }
+
+    private func hideDropDock() {
+        guard let dropDock, dropDock.isVisible else { return }
+        dropDock.orderOut(nil)
     }
 
     /// Publish a coarse 0...1 pointer position across the hover zone

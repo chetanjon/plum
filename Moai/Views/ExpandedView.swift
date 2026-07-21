@@ -78,7 +78,7 @@ struct ExpandedView: View {
             // While a drag hovers, the body reaches further down the
             // screen, so the release happens nowhere near the top
             // edge and its Mission Control hot zone.
-            if model.isDropTargeted || model.dragApproaching {
+            if model.isDropTargeted {
                 Color.clear.frame(height: 150)
             }
         }
@@ -104,13 +104,12 @@ struct ExpandedView: View {
         // unmistakable target, so drops aim here, well below the
         // browser's tab strip, instead of at the little pill.
         .overlay {
-            if model.isDropTargeted || model.dragApproaching {
+            if model.isDropTargeted {
                 dropTarget
                     .transition(.opacity)
             }
         }
         .animation(Theme.Motion.hover, value: model.isDropTargeted)
-        .animation(Theme.Motion.hover, value: model.dragApproaching)
         .animation(Theme.Motion.content, value: model.tab)
         .animation(Theme.Motion.content, value: model.pane)
         .animation(Theme.Motion.content, value: music.nowPlaying != nil)
@@ -130,28 +129,9 @@ struct ExpandedView: View {
 
     /// The whole body as one drop zone while a drag hovers.
     private var dropTarget: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
-                .fill(Color.black.opacity(0.86))
-            RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
-                .strokeBorder(
-                    Theme.textTertiary,
-                    style: StrokeStyle(lineWidth: 1.5, dash: [7, 6])
-                )
-            VStack(spacing: Theme.Space.s) {
-                Image(systemName: "tray.and.arrow.down.fill")
-                    .font(Theme.Fonts.icon(.l))
-                    .foregroundStyle(Theme.textSecondary)
-                Text("Drop to stash")
-                    .font(Theme.Fonts.body)
-                    .foregroundStyle(Theme.textPrimary)
-                Text("Files and links to the shelf, images and text to clips.")
-                    .font(Theme.Fonts.caption)
-                    .foregroundStyle(Theme.textHint)
-            }
-        }
-        .padding(Theme.Space.m)
-        .allowsHitTesting(false)
+        DropStashCard()
+            .padding(Theme.Space.m)
+            .allowsHitTesting(false)
     }
 
     /// Media (if on and something's playing) with the persistent mic,
@@ -212,6 +192,34 @@ struct ExpandedView: View {
         }
         SettingsPane(music: music)
             .frame(height: Theme.Panel.settings)
+    }
+}
+
+/// The dashed "Drop to stash" card: over the island body while a drag
+/// hovers it, and inside the mid-screen drop bubble that meets rising
+/// drags away from the screen's top edge.
+struct DropStashCard: View {
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
+                .fill(Color.black.opacity(0.86))
+            RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
+                .strokeBorder(
+                    Theme.textTertiary,
+                    style: StrokeStyle(lineWidth: 1.5, dash: [7, 6])
+                )
+            VStack(spacing: Theme.Space.s) {
+                Image(systemName: "tray.and.arrow.down.fill")
+                    .font(Theme.Fonts.icon(.l))
+                    .foregroundStyle(Theme.textSecondary)
+                Text("Drop to stash")
+                    .font(Theme.Fonts.body)
+                    .foregroundStyle(Theme.textPrimary)
+                Text("Files and links to the shelf, images and text to clips.")
+                    .font(Theme.Fonts.caption)
+                    .foregroundStyle(Theme.textHint)
+            }
+        }
     }
 }
 

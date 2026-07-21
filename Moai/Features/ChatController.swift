@@ -32,6 +32,10 @@ final class ChatController: NSObject, ObservableObject {
     func goHome() {
         webView.load(URLRequest(url: Self.homeURL))
     }
+
+    func goBack() {
+        if webView.canGoBack { webView.goBack() }
+    }
 }
 
 extension ChatController: WKNavigationDelegate {
@@ -72,6 +76,7 @@ extension ChatController: WKUIDelegate {
 /// island, with a shimmer while pages settle.
 struct ChatPane: View {
     @ObservedObject var chat: ChatController
+    @State private var hovered = false
 
     var body: some View {
         ZStack {
@@ -88,6 +93,30 @@ struct ChatPane: View {
                     .transition(.opacity)
             }
         }
+        // A login page can dead-end with no way out; back and home
+        // float in on hover so a stuck page is never a trap.
+        .overlay(alignment: .topTrailing) {
+            if hovered {
+                HStack(spacing: Theme.Space.xs) {
+                    HoverGlyphButton(
+                        symbol: "chevron.left", scale: .s, tint: Theme.textSecondary
+                    ) {
+                        chat.goBack()
+                    }
+                    HoverGlyphButton(
+                        symbol: "house", scale: .s, tint: Theme.textSecondary
+                    ) {
+                        chat.goHome()
+                    }
+                }
+                .padding(Theme.Space.xs)
+                .background(Capsule().fill(Color.black.opacity(0.75)))
+                .padding(Theme.Space.s)
+                .transition(.opacity)
+            }
+        }
+        .onHover { hovered = $0 }
+        .animation(Theme.Motion.hover, value: hovered)
         .animation(Theme.Motion.content, value: chat.isLoading)
     }
 }

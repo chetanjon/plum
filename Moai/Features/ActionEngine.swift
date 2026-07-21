@@ -175,6 +175,10 @@ final class ActionEngine {
                 )
                 return "Opening \(app.deletingPathExtension().lastPathComponent)."
             }
+            if let folder = Self.knownFolder(name) {
+                NSWorkspace.shared.open(folder)
+                return "Opening \(name.capitalized)."
+            }
             if let url = ShortcutStore.resolvedURL(for: name) {
                 NSWorkspace.shared.open(url)
                 return "Opening."
@@ -196,6 +200,24 @@ final class ActionEngine {
             let title = match.localizedName ?? name
             match.terminate()
             return "Quit \(title)."
+        }
+
+        // System actions, spoken: the same four the Go grid offers.
+        if ["screenshot", "take a screenshot", "grab a screenshot"].contains(lower) {
+            SystemAction.screenshot.run()
+            return "Crosshairs up. It lands on the clipboard."
+        }
+        if ["lock screen", "lock the screen", "lock my screen"].contains(lower) {
+            SystemAction.lockScreen.run()
+            return "Locked."
+        }
+        if ["dark mode", "light mode", "toggle dark mode", "switch appearance"].contains(lower) {
+            SystemAction.darkMode.run()
+            return "Appearance flipped."
+        }
+        if ["empty trash", "empty the trash", "take out the trash"].contains(lower) {
+            SystemAction.emptyTrash.run()
+            return "Trash emptied."
         }
 
         // Focus sessions
@@ -301,6 +323,25 @@ final class ActionEngine {
         }
 
         return nil
+    }
+
+    /// The home folders people ask for by name. Apps win first, so
+    /// "open music" is the app and "open downloads" is the folder.
+    private static func knownFolder(_ name: String) -> URL? {
+        let fm = FileManager.default
+        func standard(_ directory: FileManager.SearchPathDirectory) -> URL? {
+            fm.urls(for: directory, in: .userDomainMask).first
+        }
+        switch name {
+        case "downloads": return standard(.downloadsDirectory)
+        case "documents": return standard(.documentDirectory)
+        case "desktop": return standard(.desktopDirectory)
+        case "pictures": return standard(.picturesDirectory)
+        case "movies": return standard(.moviesDirectory)
+        case "home", "home folder": return fm.homeDirectoryForCurrentUser
+        case "applications": return URL(fileURLWithPath: "/Applications")
+        default: return nil
+        }
     }
 
     // MARK: - Parsing helpers

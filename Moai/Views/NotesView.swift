@@ -92,6 +92,12 @@ private struct NoteRow: View {
             .frame(maxWidth: .infinity, alignment: .leading)
 
             Group {
+                // A jotted thought usually wants pasting somewhere.
+                IconActionButton(symbol: "doc.on.doc") {
+                    let pasteboard = NSPasteboard.general
+                    pasteboard.clearContents()
+                    pasteboard.setString(note.text, forType: .string)
+                }
                 IconActionButton(symbol: "sparkles", tint: accent) {
                     model.askAbout(name: "note", text: note.text)
                 }

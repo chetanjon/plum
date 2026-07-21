@@ -56,6 +56,7 @@ struct Switcher: View {
 private struct SwitcherItem: View {
     let tab: NotchViewModel.Tab
     @ObservedObject var model: NotchViewModel
+    @Environment(\.moaiAccent) private var accent
     @State private var hovered = false
 
     var body: some View {
@@ -79,7 +80,14 @@ private struct SwitcherItem: View {
             )
             .padding(.horizontal, Theme.Space.m)
             .padding(.vertical, 6)
-            .background(Capsule().fill(Color.white.opacity(on ? 0.10 : 0)))
+            // The active tool wears a quiet wash of the accent, the
+            // island's one habit of color inside the glass.
+            .background(Capsule().fill(on ? accent.opacity(0.14) : Color.clear))
+            .overlay(
+                Capsule().strokeBorder(
+                    on ? accent.opacity(0.22) : Color.clear, lineWidth: 1
+                )
+            )
             .contentShape(Capsule())
         }
         .buttonStyle(PressableStyle())

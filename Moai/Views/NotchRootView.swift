@@ -126,8 +126,8 @@ struct NotchRootView: View {
             }
             let grow: CGFloat = model.isHovering ? 1 : 0
             return CGSize(
-                width: monitorContentWidth + 32 + 12 * grow,
-                height: 26 + 6 * grow
+                width: monitorContentWidth + 28 + 12 * grow,
+                height: 20 + 8 * grow
             )
         }
         let growW: CGFloat = model.isHovering ? 14 : 0
@@ -166,9 +166,9 @@ struct NotchRootView: View {
                 // The compact content pill sits between sliver and
                 // notch scale; its curves scale with it.
                 return IslandShape(
-                    eave: 10,
-                    bottomRadius: 12,
-                    belly: reaching ? 2 : 1
+                    eave: 7,
+                    bottomRadius: 9,
+                    belly: reaching ? 1.5 : 0.5
                 )
             }
             return IslandShape(
@@ -204,6 +204,13 @@ struct NotchRootView: View {
                                     ? (model.isHovering ? 0.9 : (idleEdgeOn ? 0.55 : 0.4))
                                     : 1
                             )
+                    )
+                    // A whisper of the album color rims the open glass,
+                    // the one place the accent touches the shell.
+                    .overlay(
+                        islandShape
+                            .strokeBorder(accent.opacity(0.16), lineWidth: 1)
+                            .opacity(model.state == .expanded ? 1 : 0)
                     )
                     // Bottom-lit lip: keeps the idle droplet findable
                     // over fullscreen apps' pure black top strip.
@@ -362,7 +369,7 @@ struct NotchRootView: View {
     private var monitorPill: some View {
         HStack(spacing: Theme.Space.s) {
             if monitorPlaying {
-                NowPlayingBars(accent: accent, barCount: 4, maxHeight: 11)
+                NowPlayingBars(accent: accent, barCount: 4, maxHeight: 9)
             }
             if let active = ambience.active, !monitorPlaying {
                 Image(systemName: active.symbol)
@@ -395,7 +402,7 @@ struct NotchRootView: View {
         HStack(spacing: Theme.Space.snug) {
             ProgressRing(
                 progress: focus.isActive ? focus.progress : timer.progress,
-                size: 11,
+                size: 10,
                 lineWidth: 1.5,
                 tint: accent,
                 trackOpacity: 0.15

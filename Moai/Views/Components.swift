@@ -96,11 +96,15 @@ extension View {
 }
 
 /// The one uppercase micro section header. Trailing rule optional;
-/// tint lifts to the accent where a phase owns the pane.
+/// tint lifts to the accent where a phase owns the pane. The rule
+/// itself starts with a breath of the accent and fades to hairline,
+/// a little warmth without a single filled surface.
 struct SectionHeader: View {
     let title: String
     var tint: Color = Theme.textTertiary
     var trailingRule = false
+
+    @Environment(\.moaiAccent) private var accent
 
     var body: some View {
         HStack(spacing: Theme.Space.s) {
@@ -109,9 +113,12 @@ struct SectionHeader: View {
                 .tracking(1.3)
                 .foregroundStyle(tint)
             if trailingRule {
-                Rectangle()
-                    .fill(Theme.hairlineFaint)
-                    .frame(height: 1)
+                LinearGradient(
+                    colors: [accent.opacity(0.30), Color.white.opacity(0.06)],
+                    startPoint: .leading,
+                    endPoint: .trailing
+                )
+                .frame(height: 1)
             }
         }
     }

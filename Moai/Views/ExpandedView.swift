@@ -212,6 +212,7 @@ struct ExpandedView: View {
         SettingsPane(
             music: music,
             updates: model.updates,
+            events: model.events,
             scrollTarget: $model.settingsScrollTarget
         ) {
             withAnimation(Theme.Motion.content) { model.replayWelcome() }

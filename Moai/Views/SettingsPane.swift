@@ -6,6 +6,8 @@ import SwiftUI
 struct SettingsPane: View {
     @ObservedObject var music: MusicController
     @ObservedObject var updates: UpdateChecker
+    /// For the reminders destination picker.
+    let events: EventKitService
     /// Jump target for debug-driven screenshots: a section title,
     /// lowercased. Cleared once honored.
     @Binding var scrollTarget: String?
@@ -19,6 +21,9 @@ struct SettingsPane: View {
     /// The mics on offer right now, refreshed each time the pane
     /// opens; (name, uid) pairs for the Microphone picker.
     @State private var inputDevices: [(name: String, uid: String)] = []
+    /// Writable reminder lists, refreshed each time the pane opens.
+    @State private var reminderLists: [(title: String, id: String)] = []
+    @AppStorage(EventKitService.reminderListKey) private var reminderListID = ""
 
     // Which blocks the island shows. Media/ambience/tools ship on; your
     // day is opt-in.
@@ -79,6 +84,21 @@ struct SettingsPane: View {
                     toggleRow("Calendar today", $showCalendar)
                     divider
                     toggleRow("Reminders", $showReminders)
+                    if !reminderLists.isEmpty {
+                        row("Save reminders to") {
+                            Picker("", selection: $reminderListID) {
+                                Text("Automatic").tag("")
+                                ForEach(reminderLists, id: \.id) { list in
+                                    Text(list.title).tag(list.id)
+                                }
+                            }
+                            .pickerStyle(.menu)
+                            .labelsHidden()
+                            .controlSize(.small)
+                            .tint(accent)
+                            .fixedSize()
+                        }
+                    }
                     divider
                     toggleRow("Shortcuts", $toolGo)
                     divider
@@ -229,6 +249,12 @@ struct SettingsPane: View {
                 devices.append((name: "Not connected", uid: voiceInputUID))
             }
             inputDevices = devices
+            var lists = events.availableReminderLists()
+            if !reminderListID.isEmpty,
+               !lists.contains(where: { $0.id == reminderListID }) {
+                lists.append((title: "Missing list", id: reminderListID))
+            }
+            reminderLists = lists
         }
         .onDisappear { saveKeys() }
     }

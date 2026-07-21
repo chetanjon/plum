@@ -245,15 +245,37 @@ final class EventKitService: ObservableObject {
 
     // MARK: - Writes
 
+    /// Settings key holding the chosen destination list's identifier.
+    /// Empty means automatic (the system default list).
+    static let reminderListKey = "reminderListID"
+
+    /// Writable reminder lists for the settings picker, labeled with
+    /// their account so two lists named "Reminders" stay tellable
+    /// apart. Empty until access has been granted; enumerating must
+    /// never be the thing that pops the permission dialog.
+    func availableReminderLists() -> [(title: String, id: String)] {
+        guard EKEventStore.authorizationStatus(for: .reminder) == .fullAccess else {
+            return []
+        }
+        return store.calendars(for: .reminder)
+            .filter { $0.allowsContentModifications }
+            .map { ("\($0.title) · \($0.source.title)", $0.calendarIdentifier) }
+    }
+
     func addReminder(_ title: String, due: Date?) async -> String {
         guard await ensureReminders() else {
             return "Reminders access is off. System Settings, Privacy, Reminders."
         }
         let reminder = EKReminder(eventStore: store)
         reminder.title = title
-        // No default list is a real configuration on Macs without
-        // iCloud Reminders, fall back to any writable list.
-        guard let calendar = store.defaultCalendarForNewReminders()
+        // The user's chosen list wins; automatic falls to the system
+        // default. No default list is a real configuration on Macs
+        // without iCloud Reminders, fall back to any writable list.
+        let chosenID = UserDefaults.standard.string(forKey: Self.reminderListKey) ?? ""
+        let chosen = chosenID.isEmpty ? nil : store.calendars(for: .reminder)
+            .first { $0.calendarIdentifier == chosenID && $0.allowsContentModifications }
+        guard let calendar = chosen
+            ?? store.defaultCalendarForNewReminders()
             ?? store.calendars(for: .reminder).first(where: { $0.allowsContentModifications })
         else {
             return "No Reminders list to save into. Open the Reminders app once, then retry."
@@ -275,10 +297,11 @@ final class EventKitService: ObservableObject {
         // or an undated one hiding from the Today smart list, reads
         // as "it never saved" without this one word of truth.
         if let due {
-            return "Set. \(Self.formatter.string(from: due)). In \(calendar.title)."
+            return "Set. \(Self.formatter.string(from: due))."
+                + " In \(calendar.title) (\(calendar.source.title))."
         }
-        return "Set in \(calendar.title), no time attached, it won't ring."
-            + " Add one like \"at 6\" next time."
+        return "Set in \(calendar.title) (\(calendar.source.title)),"
+            + " no time attached, it won't ring. Add one like \"at 6\" next time."
     }
 
     func addEvent(_ title: String, start: Date) async -> String {

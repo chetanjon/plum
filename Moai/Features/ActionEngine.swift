@@ -15,8 +15,10 @@ final class ActionEngine {
 
     func handle(_ raw: String) async -> String? {
         // Speech hands over sentences with trailing punctuation and
-        // doubled spaces; a period kills every exact-match verb.
-        let text = Self.sanitized(raw)
+        // doubled spaces; a period kills every exact-match verb. It
+        // also hands over manners ("hey can you add a reminder for
+        // walking"), which must never defeat the verb underneath.
+        let text = Self.strippedOfPleasantries(Self.sanitized(raw))
         let lower = text.lowercased().trimmingCharacters(in: .whitespaces)
 
         // Notes, fully local
@@ -440,6 +442,33 @@ final class ActionEngine {
     """
 
     // MARK: - Parsing helpers
+
+    /// Politeness is welcome and ignored: leading fillers peel off
+    /// until a verb can lead, and a trailing "please" or "for me"
+    /// stays out of reminder titles.
+    static func strippedOfPleasantries(_ raw: String) -> String {
+        var text = raw.trimmingCharacters(in: .whitespaces)
+        let leaders = [
+            "hey moai ", "hey ", "hi ", "ok ", "okay ", "so ",
+            "please ", "can you ", "could you ", "would you ",
+            "will you ", "moai ",
+        ]
+        var peeled = true
+        while peeled {
+            peeled = false
+            for leader in leaders where text.lowercased().hasPrefix(leader) {
+                text = String(text.dropFirst(leader.count))
+                    .trimmingCharacters(in: .whitespaces)
+                peeled = true
+            }
+        }
+        for trailer in [" please", " for me", " thanks", " thank you"]
+        where text.lowercased().hasSuffix(trailer) {
+            text = String(text.dropLast(trailer.count))
+                .trimmingCharacters(in: .whitespaces)
+        }
+        return text
+    }
 
     /// Trailing punctuation gone, runs of spaces collapsed. Dictation
     /// writes "What's next." and exact matches must still hit.

@@ -140,7 +140,9 @@ struct NotchRootView: View {
         )
     }
 
-    private static let listeningSize = CGSize(width: 380, height: 156)
+    // Height covers bars, two transcript lines, RELEASE TO RUN, and
+    // the live device caption underneath.
+    private static let listeningSize = CGSize(width: 380, height: 192)
 
     private var islandSize: CGSize {
         switch model.state {
@@ -599,6 +601,14 @@ struct NotchRootView: View {
                 .font(Theme.Fonts.micro)
                 .tracking(1.2)
                 .foregroundStyle(Theme.textTertiary)
+            // Which ear is live. When the watchdog hops mid-hold the
+            // name changes in place, so a wrong mic is never a mystery.
+            if let device = voice.activeDeviceName {
+                Text(device)
+                    .font(Theme.Fonts.micro)
+                    .foregroundStyle(Theme.textGhost)
+                    .lineLimit(1)
+            }
         }
         .padding(.top, model.notchSize.height + 6)
         .contentShape(Rectangle())

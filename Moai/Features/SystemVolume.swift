@@ -25,10 +25,101 @@ enum SystemVolume {
         AudioObjectSetPropertyData(device, &address, 0, nil, size, &volume)
     }
 
-    /// The default input device's name, for the voice diagnostics: a
-    /// monitor claiming the mic role explains "no speech detected"
-    /// faster than any other fact.
-    static func inputDeviceName() -> String? {
+    /// One attachable input: everything the voice session needs to
+    /// pick, pin, and name an ear.
+    struct InputDevice: Equatable {
+        let id: AudioObjectID
+        let uid: String
+        let name: String
+        let transport: UInt32
+        var isBuiltIn: Bool { transport == kAudioDeviceTransportTypeBuiltIn }
+        /// The Mac's own microphone. The headphone jack also claims
+        /// the built-in transport (seen live: a dead "External
+        /// Microphone" that is really BuiltInHeadphoneInputDevice),
+        /// so transport alone cannot identify the real mic; the
+        /// stable UID is the truth and the name check is the net.
+        var isBuiltInMic: Bool {
+            uid == "BuiltInMicrophoneDevice"
+                || (isBuiltIn
+                    && !uid.localizedCaseInsensitiveContains("headphone")
+                    && !name.localizedCaseInsensitiveContains("external"))
+        }
+        /// The built-in codec's line-in jack: exactly the dead ear
+        /// this round routes around, so it always queues last.
+        var isJack: Bool { isBuiltIn && !isBuiltInMic }
+    }
+
+    /// Every device currently offering input streams. The lid-closed
+    /// MacBook drops its own mic from this list, which is exactly the
+    /// situation the voice session needs to see coming.
+    static func inputDevices() -> [InputDevice] {
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwarePropertyDevices,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        var size: UInt32 = 0
+        guard AudioObjectGetPropertyDataSize(
+            AudioObjectID(kAudioObjectSystemObject), &address, 0, nil, &size
+        ) == noErr else { return [] }
+        var ids = [AudioObjectID](
+            repeating: 0, count: Int(size) / MemoryLayout<AudioObjectID>.size
+        )
+        guard AudioObjectGetPropertyData(
+            AudioObjectID(kAudioObjectSystemObject), &address, 0, nil, &size, &ids
+        ) == noErr else { return [] }
+        var devices: [InputDevice] = []
+        for id in ids {
+            var streamsAddress = AudioObjectPropertyAddress(
+                mSelector: kAudioDevicePropertyStreams,
+                mScope: kAudioObjectPropertyScopeInput,
+                mElement: kAudioObjectPropertyElementMain
+            )
+            var streamsSize: UInt32 = 0
+            guard AudioObjectGetPropertyDataSize(
+                id, &streamsAddress, 0, nil, &streamsSize
+            ) == noErr, streamsSize > 0 else { continue }
+            // A device announcing its own death is not an ear. Missing
+            // property means alive; many devices never publish it.
+            var aliveAddress = AudioObjectPropertyAddress(
+                mSelector: kAudioDevicePropertyDeviceIsAlive,
+                mScope: kAudioObjectPropertyScopeGlobal,
+                mElement: kAudioObjectPropertyElementMain
+            )
+            if AudioObjectHasProperty(id, &aliveAddress) {
+                var alive: UInt32 = 1
+                var aliveSize = UInt32(MemoryLayout<UInt32>.size)
+                if AudioObjectGetPropertyData(
+                    id, &aliveAddress, 0, nil, &aliveSize, &alive
+                ) == noErr, alive == 0 { continue }
+            }
+            var transport: UInt32 = 0
+            var transportSize = UInt32(MemoryLayout<UInt32>.size)
+            var transportAddress = AudioObjectPropertyAddress(
+                mSelector: kAudioDevicePropertyTransportType,
+                mScope: kAudioObjectPropertyScopeGlobal,
+                mElement: kAudioObjectPropertyElementMain
+            )
+            if AudioObjectGetPropertyData(
+                id, &transportAddress, 0, nil, &transportSize, &transport
+            ) != noErr { transport = 0 }
+            let uid = stringProperty(id, kAudioDevicePropertyDeviceUID) ?? ""
+            // The HAL mints private aggregates as capture plumbing
+            // (CADefaultDeviceAggregate-…); they are not ears anyone
+            // chose and only confuse the picker and the queue.
+            if uid.hasPrefix("CADefaultDeviceAggregate") { continue }
+            devices.append(InputDevice(
+                id: id,
+                uid: uid,
+                name: stringProperty(id, kAudioObjectPropertyName) ?? "Input \(id)",
+                transport: transport
+            ))
+        }
+        return devices
+    }
+
+    /// The system's default input device, if one is set at all.
+    static func defaultInputDevice() -> AudioObjectID? {
         var address = AudioObjectPropertyAddress(
             mSelector: kAudioHardwarePropertyDefaultInputDevice,
             mScope: kAudioObjectPropertyScopeGlobal,
@@ -39,76 +130,39 @@ enum SystemVolume {
         guard AudioObjectGetPropertyData(
             AudioObjectID(kAudioObjectSystemObject), &address, 0, nil, &size, &deviceID
         ) == noErr, deviceID != 0 else { return nil }
-        var nameAddress = AudioObjectPropertyAddress(
-            mSelector: kAudioObjectPropertyName,
-            mScope: kAudioObjectPropertyScopeGlobal,
-            mElement: kAudioObjectPropertyElementMain
-        )
-        var name: CFString = "" as CFString
-        var nameSize = UInt32(MemoryLayout<CFString>.size)
-        guard AudioObjectGetPropertyData(
-            deviceID, &nameAddress, 0, nil, &nameSize, &name
-        ) == noErr else { return nil }
-        return name as String
+        return deviceID
+    }
+
+    /// The default input device's name, for the voice diagnostics: a
+    /// monitor claiming the mic role explains "no speech detected"
+    /// faster than any other fact.
+    static func inputDeviceName() -> String? {
+        guard let deviceID = defaultInputDevice() else { return nil }
+        return stringProperty(deviceID, kAudioObjectPropertyName)
     }
 
     /// The Mac's own microphone, for the voice session's rescue path:
     /// when the default input is a dead external jack, the built-in
-    /// mic is the one that actually hears the user.
+    /// mic is the one that actually hears the user. Nil with the lid
+    /// closed, when the hardware retires it.
     static func builtInInputDevice() -> AudioObjectID? {
-        var address = AudioObjectPropertyAddress(
-            mSelector: kAudioHardwarePropertyDevices,
-            mScope: kAudioObjectPropertyScopeGlobal,
-            mElement: kAudioObjectPropertyElementMain
-        )
-        var size: UInt32 = 0
-        guard AudioObjectGetPropertyDataSize(
-            AudioObjectID(kAudioObjectSystemObject), &address, 0, nil, &size
-        ) == noErr else { return nil }
-        var ids = [AudioObjectID](
-            repeating: 0, count: Int(size) / MemoryLayout<AudioObjectID>.size
-        )
-        guard AudioObjectGetPropertyData(
-            AudioObjectID(kAudioObjectSystemObject), &address, 0, nil, &size, &ids
-        ) == noErr else { return nil }
-        for id in ids {
-            var transport: UInt32 = 0
-            var transportSize = UInt32(MemoryLayout<UInt32>.size)
-            var transportAddress = AudioObjectPropertyAddress(
-                mSelector: kAudioDevicePropertyTransportType,
-                mScope: kAudioObjectPropertyScopeGlobal,
-                mElement: kAudioObjectPropertyElementMain
-            )
-            guard AudioObjectGetPropertyData(
-                id, &transportAddress, 0, nil, &transportSize, &transport
-            ) == noErr, transport == kAudioDeviceTransportTypeBuiltIn else { continue }
-            var streamsAddress = AudioObjectPropertyAddress(
-                mSelector: kAudioDevicePropertyStreams,
-                mScope: kAudioObjectPropertyScopeInput,
-                mElement: kAudioObjectPropertyElementMain
-            )
-            var streamsSize: UInt32 = 0
-            guard AudioObjectGetPropertyDataSize(
-                id, &streamsAddress, 0, nil, &streamsSize
-            ) == noErr, streamsSize > 0 else { continue }
-            return id
-        }
-        return nil
+        inputDevices().first(where: { $0.isBuiltInMic })?.id
     }
 
-    /// True when the system's default input is the built-in mic.
-    static func defaultInputIsBuiltIn() -> Bool {
+    private static func stringProperty(
+        _ id: AudioObjectID, _ selector: AudioObjectPropertySelector
+    ) -> String? {
         var address = AudioObjectPropertyAddress(
-            mSelector: kAudioHardwarePropertyDefaultInputDevice,
+            mSelector: selector,
             mScope: kAudioObjectPropertyScopeGlobal,
             mElement: kAudioObjectPropertyElementMain
         )
-        var deviceID = AudioObjectID(0)
-        var size = UInt32(MemoryLayout<AudioObjectID>.size)
+        var value: CFString = "" as CFString
+        var size = UInt32(MemoryLayout<CFString>.size)
         guard AudioObjectGetPropertyData(
-            AudioObjectID(kAudioObjectSystemObject), &address, 0, nil, &size, &deviceID
-        ) == noErr, deviceID != 0 else { return false }
-        return deviceID == builtInInputDevice()
+            id, &address, 0, nil, &size, &value
+        ) == noErr else { return nil }
+        return value as String
     }
 
     private static func defaultOutputDevice() -> AudioObjectID? {

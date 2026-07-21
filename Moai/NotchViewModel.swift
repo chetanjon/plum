@@ -31,6 +31,9 @@ final class NotchViewModel: ObservableObject {
     /// Which lower panel the switcher is showing. `.today` is home.
     @Published var tab: Tab = .today
     @Published var pane: Pane = .none
+    /// Settings section to scroll to when the pane opens, set by the
+    /// debug harness so screenshots can reach below the fold.
+    @Published var settingsScrollTarget: String?
 
     /// The island's expanded size, measured from the content itself,
     /// the island hugs what's shown instead of reserving a fixed void.
@@ -270,6 +273,36 @@ final class NotchViewModel: ObservableObject {
                         .trimmingCharacters(in: .whitespaces)
                     self.welcomeStep = min(2, max(0, Int(tail) ?? 0))
                     self.pane = .welcome
+                    self.expand()
+                    return
+                }
+                // "debug rec" records the live tap to /tmp/moai-tap.caf;
+                // "debug recfile" runs the recognizer over it. Together
+                // they split "garbled capture" from "deaf recognizer".
+                if text == "debug rec" {
+                    self.voice.debugRecord(seconds: 3.5) { [weak self] note in
+                        self?.expand()
+                        self?.tab = .ask
+                        self?.answer = note
+                    }
+                    return
+                }
+                if text == "debug recfile" {
+                    self.voice.debugRecognizeFile(path: "/tmp/moai-tap.caf") { [weak self] note in
+                        self?.expand()
+                        self?.tab = .ask
+                        self?.answer = note
+                    }
+                    return
+                }
+                // "debug settings" opens the settings pane for
+                // screenshots; an optional tail scrolls to a section,
+                // "debug settings island".
+                if text.hasPrefix("debug settings") {
+                    let tail = text.dropFirst("debug settings".count)
+                        .trimmingCharacters(in: .whitespaces)
+                    self.settingsScrollTarget = tail.isEmpty ? nil : tail.lowercased()
+                    self.pane = .settings
                     self.expand()
                     return
                 }

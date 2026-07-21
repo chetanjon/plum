@@ -6,6 +6,9 @@ import SwiftUI
 struct SettingsPane: View {
     @ObservedObject var music: MusicController
     @ObservedObject var updates: UpdateChecker
+    /// Jump target for debug-driven screenshots: a section title,
+    /// lowercased. Cleared once honored.
+    @Binding var scrollTarget: String?
     /// Reopens the first-run tour.
     var onReplayTour: (() -> Void)?
 
@@ -13,6 +16,9 @@ struct SettingsPane: View {
 
     @State private var launchAtLogin = false
     @State private var apiKeys: [AIProvider: String] = [:]
+    /// The mics on offer right now, refreshed each time the pane
+    /// opens; (name, uid) pairs for the Microphone picker.
+    @State private var inputDevices: [(name: String, uid: String)] = []
 
     // Which blocks the island shows. Media/ambience/tools ship on; your
     // day is opt-in.
@@ -28,6 +34,7 @@ struct SettingsPane: View {
 
     @AppStorage("expandOnHover") private var expandOnHover = true
     @AppStorage(HotkeySummon.settingKey) private var summonKey = "optSpace"
+    @AppStorage(VoiceController.pinnedUIDKey) private var voiceInputUID = ""
     @AppStorage("openDelay") private var openDelay = 0.12
     @AppStorage("collapseDelay") private var collapseDelay = 0.05
     @AppStorage("motionFeel") private var motionFeel = "serene"
@@ -42,6 +49,24 @@ struct SettingsPane: View {
     @Environment(\.moaiAccent) private var accent
 
     var body: some View {
+        ScrollViewReader { proxy in
+            scrollBody
+                .onChange(of: scrollTarget) { _, target in
+                    guard let target else { return }
+                    proxy.scrollTo(target, anchor: .top)
+                    scrollTarget = nil
+                }
+                .onAppear {
+                    guard let target = scrollTarget else { return }
+                    DispatchQueue.main.async {
+                        proxy.scrollTo(target, anchor: .top)
+                        scrollTarget = nil
+                    }
+                }
+        }
+    }
+
+    private var scrollBody: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Theme.Space.l) {
                 section("What shows", reveal: 0) {
@@ -70,6 +95,23 @@ struct SettingsPane: View {
                             ("⇧⌘Space", "cmdShiftSpace"), ("Off", "off"),
                         ], width: 236)
                     }
+                    divider
+                    row("Microphone") {
+                        Picker("", selection: $voiceInputUID) {
+                            Text("Automatic").tag("")
+                            ForEach(inputDevices, id: \.uid) { device in
+                                Text(device.name).tag(device.uid)
+                            }
+                        }
+                        .pickerStyle(.menu)
+                        .labelsHidden()
+                        .controlSize(.small)
+                        .tint(accent)
+                        .fixedSize()
+                    }
+                    Text("Automatic starts with the Mac's own mic and hops if it hears nothing.")
+                        .font(Theme.Fonts.caption)
+                        .foregroundStyle(Theme.textHint)
                     divider
                     toggleRow("Open on hover", $expandOnHover)
                     divider
@@ -161,6 +203,17 @@ struct SettingsPane: View {
             for provider in AIProvider.allCases where provider.needsKey {
                 apiKeys[provider] = KeychainStore.read(provider.keychainAccount) ?? ""
             }
+            var devices = SystemVolume.inputDevices()
+                .filter { !$0.uid.isEmpty }
+                .map { (name: $0.name, uid: $0.uid) }
+            // A pinned mic that is not attached right now still needs
+            // a menu entry, or the picker renders blank and the pin
+            // becomes invisible instead of clearable.
+            if !voiceInputUID.isEmpty,
+               !devices.contains(where: { $0.uid == voiceInputUID }) {
+                devices.append((name: "Not connected", uid: voiceInputUID))
+            }
+            inputDevices = devices
         }
         .onDisappear { saveKeys() }
     }
@@ -210,6 +263,8 @@ struct SettingsPane: View {
             .moaiCard()
         }
         .staggeredReveal(reveal)
+        // Scroll anchor for debug-driven screenshots: "island", "life".
+        .id(title.lowercased())
     }
 
     private var divider: some View {

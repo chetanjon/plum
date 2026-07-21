@@ -80,10 +80,26 @@ struct NotchRootView: View {
         }
     }
 
+    /// Nothing to say and no hardware to hug: on a monitor the
+    /// resting droplet has no business sitting on window chrome.
+    private var collapsedIsEmpty: Bool {
+        !model.hasPhysicalNotch
+            && !hasLeftWing
+            && ambience.active == nil
+            && model.glanceToast == nil
+            && upcomingEvent == nil
+            && glanceIdle == "none"
+    }
+
     /// Stable per-state sizes: content is framed to its own state's
     /// size (not the live island size), so an outgoing view fades out
     /// at its natural size instead of being crushed into the pill.
     private var collapsedSize: CGSize {
+        if collapsedIsEmpty {
+            // A hint of a droplet; hover swells it back toward full.
+            let grow: CGFloat = model.isHovering ? 1 : 0
+            return CGSize(width: 112 + 36 * grow, height: 22 + 8 * grow)
+        }
         let growW: CGFloat = model.isHovering ? 14 : 0
         let growH: CGFloat = model.isHovering ? 4 : 0
         return CGSize(
@@ -107,6 +123,14 @@ struct NotchRootView: View {
             // On hover the droplet "reaches", shoulders widen, belly
             // sags, a soft beat of anticipation before opening.
             let reaching = model.isHovering && Theme.Feel.current.ambient
+            if collapsedIsEmpty {
+                // The hint pill is too short for the full geometry.
+                return IslandShape(
+                    eave: 8 + (reaching ? 1 : 0),
+                    bottomRadius: 10,
+                    belly: reaching ? 2 : 1
+                )
+            }
             return IslandShape(
                 eave: Theme.Island.eaveCollapsed + (reaching ? 1.5 : 0),
                 bottomRadius: Theme.Island.radiusCollapsed,

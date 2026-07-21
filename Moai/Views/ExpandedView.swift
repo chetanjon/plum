@@ -265,76 +265,111 @@ struct TodayView: View {
     let showReminders: Bool
     @Environment(\.moaiAccent) private var accent
 
+    private static let dateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "EEEE, MMM d"
+        return formatter
+    }()
+
     var body: some View {
-        VStack(alignment: .leading, spacing: Theme.Space.l) {
-            if showCalendar { calendarBlock }
-            if showReminders { remindersBlock }
+        // Empty sections vanish instead of announcing their
+        // emptiness; a fully clear day gets one graceful line.
+        let hasEvents = showCalendar && !events.calendarDenied && !events.events.isEmpty
+        let hasReminders = showReminders && !events.remindersDenied && !events.reminders.isEmpty
+        let denials = deniedLines
+        VStack(alignment: .leading, spacing: Theme.Space.s) {
+            header
+            ForEach(denials, id: \.self) { line in
+                Text(line)
+                    .font(Theme.Fonts.caption)
+                    .foregroundStyle(Theme.textHint)
+            }
+            if hasEvents { eventRows }
+            if hasReminders {
+                reminderRows
+                    .padding(.top, hasEvents ? Theme.Space.xs : 0)
+            }
+            if !hasEvents, !hasReminders, denials.isEmpty {
+                clearDay
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .task { await events.refresh() }
     }
 
-    private var calendarBlock: some View {
-        VStack(alignment: .leading, spacing: Theme.Space.s) {
-            SectionHeader(title: "Today", trailingRule: true)
-            if events.calendarDenied {
-                Text("Calendar access is off. System Settings, Privacy, Calendars.")
-                    .font(Theme.Fonts.body)
-                    .foregroundStyle(Theme.textHint)
-            } else if events.events.isEmpty {
-                Text("Nothing today.")
-                    .font(Theme.Fonts.body)
-                    .foregroundStyle(Theme.textHint)
-            } else {
-                let now = Date()
-                ForEach(events.events) { event in
-                    let past = !event.isAllDay && event.end < now
-                    HStack(spacing: Theme.Space.m) {
-                        Text(event.time)
-                            .font(Theme.Fonts.captionMono)
-                            .foregroundStyle(Theme.textTertiary)
-                            .frame(width: 58, alignment: .leading)
-                        Text(event.title)
-                            .font(Theme.Fonts.body)
-                            .foregroundStyle(Theme.textPrimary)
-                            .lineLimit(1)
-                        // The one about to start carries its countdown.
-                        if event.id == events.nextEvent?.id {
-                            let closing = event.countdown(from: now)
-                            Text(closing == "now" ? "now" : "in \(closing)")
-                                .font(Theme.Fonts.captionMono)
-                                .foregroundStyle(accent)
-                        }
-                        Spacer(minLength: 0)
-                        if let url = event.joinURL, !past {
-                            JoinChip(url: url)
-                        }
-                    }
-                    .rowInsets()
-                    .moaiCard(radius: Theme.Radius.row)
-                    // The day so far settles back; what's ahead stays lit.
-                    .opacity(past ? 0.4 : 1)
-                }
-            }
+    /// One header for the whole day, anchored by the date.
+    private var header: some View {
+        HStack(spacing: Theme.Space.s) {
+            SectionHeader(title: "Today")
+            Rectangle()
+                .fill(Theme.hairlineFaint)
+                .frame(height: 1)
+            Text(Self.dateFormatter.string(from: Date()))
+                .font(Theme.Fonts.microMono)
+                .foregroundStyle(Theme.textGhost)
         }
     }
 
-    private var remindersBlock: some View {
-        VStack(alignment: .leading, spacing: Theme.Space.s) {
-            SectionHeader(title: "Reminders", trailingRule: true)
-            if events.remindersDenied {
-                Text("Reminders access is off. System Settings, Privacy, Reminders.")
+    private var deniedLines: [String] {
+        var lines: [String] = []
+        if showCalendar, events.calendarDenied {
+            lines.append("Calendar access is off. System Settings, Privacy, Calendars.")
+        }
+        if showReminders, events.remindersDenied {
+            lines.append("Reminders access is off. System Settings, Privacy, Reminders.")
+        }
+        return lines
+    }
+
+    /// The empty moment, in the island's own voice.
+    private var clearDay: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text("Clear water.")
+                .font(Theme.Fonts.reading)
+                .foregroundStyle(Theme.textSecondary)
+            Text("Nothing scheduled, nothing due. The day is yours.")
+                .font(Theme.Fonts.caption)
+                .foregroundStyle(Theme.textHint)
+        }
+        .padding(.vertical, Theme.Space.s)
+    }
+
+    private var eventRows: some View {
+        let now = Date()
+        return ForEach(events.events) { event in
+            let past = !event.isAllDay && event.end < now
+            HStack(spacing: Theme.Space.m) {
+                Text(event.time)
+                    .font(Theme.Fonts.captionMono)
+                    .foregroundStyle(Theme.textTertiary)
+                    .frame(width: 58, alignment: .leading)
+                Text(event.title)
                     .font(Theme.Fonts.body)
-                    .foregroundStyle(Theme.textHint)
-            } else if events.reminders.isEmpty {
-                Text("Nothing open.")
-                    .font(Theme.Fonts.body)
-                    .foregroundStyle(Theme.textHint)
-            } else {
-                ForEach(events.reminders) { reminder in
-                    ReminderRow(reminder: reminder, events: events)
+                    .foregroundStyle(Theme.textPrimary)
+                    .lineLimit(1)
+                // The one about to start carries its countdown.
+                if event.id == events.nextEvent?.id {
+                    let closing = event.countdown(from: now)
+                    Text(closing == "now" ? "now" : "in \(closing)")
+                        .font(Theme.Fonts.captionMono)
+                        .foregroundStyle(accent)
+                }
+                Spacer(minLength: 0)
+                if let url = event.joinURL, !past {
+                    JoinChip(url: url)
                 }
             }
+            .rowInsets()
+            .moaiCard(radius: Theme.Radius.row)
+            .hoverHighlight(radius: Theme.Radius.row)
+            // The day so far settles back; what's ahead stays lit.
+            .opacity(past ? 0.4 : 1)
+        }
+    }
+
+    private var reminderRows: some View {
+        ForEach(events.reminders) { reminder in
+            ReminderRow(reminder: reminder, events: events)
         }
     }
 

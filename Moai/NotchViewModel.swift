@@ -481,6 +481,22 @@ final class NotchViewModel: ObservableObject {
                 return
             }
 
+            // Loose phrasings become verbs first: the model translates,
+            // the same deterministic engine executes. Nobody has to
+            // remember the exact words.
+            if pendingContext == nil, text.count < 160 {
+                isWorking = true
+                let verb = await AIService.translateToVerb(
+                    text, provider: provider, apiKey: key
+                )
+                isWorking = false
+                if let verb, verb.lowercased() != text.lowercased(),
+                   let acted = await engine.handle(verb) {
+                    answer = acted
+                    return
+                }
+            }
+
             var fullPrompt = text
             if let context = pendingContext {
                 fullPrompt = """

@@ -334,7 +334,7 @@ struct AnswerView: View {
                     Text(idleHint)
                         .font(Theme.Fonts.reading)
                         .foregroundStyle(Theme.textHint)
-                    Text("remind me to call amma at 6 · what's on today · focus 25 · note: an idea")
+                    Text("remind me to call amma at 6 · focus 25 · note: an idea · say help for the rest")
                         .font(Theme.Fonts.label)
                         .fontWeight(.regular)
                         .foregroundStyle(Theme.textGhost)

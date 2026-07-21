@@ -120,6 +120,66 @@ struct AIService {
         return false
     }
 
+    /// Map a loose phrasing onto one canonical command, or nil. Runs
+    /// when the deterministic verbs miss; the reply goes back through
+    /// the same engine, so natural language still ends in real
+    /// actions and nobody memorizes a vocabulary.
+    static func translateToVerb(
+        _ utterance: String,
+        provider: AIProvider,
+        apiKey: String
+    ) async -> String? {
+        let prompt = """
+        Translate the request into exactly one Moai command from this list, \
+        filling in the user's own words and times:
+        remind me to <thing> at <time> / schedule <thing> <day> at <time> / \
+        cancel <event> / move <event> to <time> / what's next / agenda / \
+        what's due / done with <reminder> / undo / focus <minutes> / \
+        timer <minutes> / stop focus / stop timer / rain / fire / cafe / \
+        brown noise / stop noise / play / pause / next / previous / \
+        open <app or folder> / quit <app> / left half / right half / fill / \
+        center / note: <text> / notes / find <words> / screenshot / \
+        lock screen / dark mode
+        Reply with the single command only, no quotes, no explanation. \
+        If nothing fits, reply NONE.
+        Request: \(utterance)
+        """
+        do {
+            var reply = ""
+            try await withThrowingTaskGroup(of: String.self) { group in
+                group.addTask {
+                    var collected = ""
+                    for try await delta in stream(
+                        prompt: prompt, provider: provider, apiKey: apiKey
+                    ) {
+                        collected += delta
+                        if collected.count > 200 { break }
+                    }
+                    return collected
+                }
+                group.addTask {
+                    try await Task.sleep(nanoseconds: 8_000_000_000)
+                    throw CancellationError()
+                }
+                reply = try await group.next() ?? ""
+                group.cancelAll()
+            }
+            let line = reply
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .components(separatedBy: .newlines).first ?? ""
+            let cleaned = line.trimmingCharacters(
+                in: CharacterSet(charactersIn: " \"'`.")
+            )
+            guard !cleaned.isEmpty,
+                  cleaned.uppercased() != "NONE",
+                  cleaned.count < 120
+            else { return nil }
+            return cleaned
+        } catch {
+            return nil
+        }
+    }
+
     /// Streams the answer as text deltas so the island can type it out
     /// live instead of sitting on ThinkingDots until the whole reply lands.
     static func stream(

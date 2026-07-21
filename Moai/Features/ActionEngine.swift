@@ -35,6 +35,12 @@ final class ActionEngine {
             return "Notes cleared."
         }
 
+        // The cheat sheet, for anyone who forgets the words.
+        if ["help", "commands", "what can you do", "what can i say",
+            "what do you do"].contains(lower) {
+            return Self.cheatSheet
+        }
+
         // Stops
         if ["stop focus", "end focus"].contains(lower) {
             model.focus.stop()
@@ -418,6 +424,20 @@ final class ActionEngine {
         default: return nil
         }
     }
+
+    /// Everything the island answers to, in one breath. Also the
+    /// vocabulary the intent bridge translates loose phrasings into.
+    static let cheatSheet = """
+    remind me to call amma at 6 · schedule lunch friday at 1
+    what's next · agenda · what's due · done with the thing
+    cancel my 3pm · move standup to 4 · undo
+    focus 25 · timer 10 · stop focus · rain · fire · cafe · quiet
+    play · pause · next · open figma · quit slack
+    left half · right half · fill · center
+    note: an idea · notes · find parcel
+    screenshot · lock screen · dark mode · empty trash
+    Anything else is a question; the model answers it.
+    """
 
     // MARK: - Parsing helpers
 

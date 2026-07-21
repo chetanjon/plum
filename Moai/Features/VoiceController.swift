@@ -143,14 +143,16 @@ final class VoiceController: NSObject, ObservableObject {
         if !pinnedUID.isEmpty {
             add(devices.first { $0.uid == pinnedUID })
         }
-        add(devices.first { $0.isBuiltInMic })
-        // The default earns its place unless it is the jack, which is
-        // how a dead "External Microphone" stole sessions until now.
+        // Earphones in the ear outrank the Mac's own mic: when the
+        // system default is a real external input (AirPods, a boAt
+        // headset, USB), it is the ear of intent. Only the dead jack
+        // never leads; it trails the whole queue.
         if let defaultID = SystemVolume.defaultInputDevice(),
            let systemDefault = devices.first(where: { $0.id == defaultID }),
            !systemDefault.isJack {
             add(systemDefault)
         }
+        add(devices.first { $0.isBuiltInMic })
         devices.filter { !$0.isJack }.forEach { add($0) }
         devices.forEach { add($0) }
         candidates = ordered

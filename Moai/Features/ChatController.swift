@@ -20,6 +20,20 @@ final class ChatController: NSObject, ObservableObject {
             case .gemini: return URL(string: "https://gemini.google.com/app")!
             }
         }
+
+        var label: String {
+            switch self {
+            case .claude: return "Claude"
+            case .chatgpt: return "ChatGPT"
+            case .gemini: return "Gemini"
+            }
+        }
+
+        var next: Service {
+            let all = Self.allCases
+            let index = all.firstIndex(of: self) ?? 0
+            return all[(index + 1) % all.count]
+        }
     }
 
     /// Settings key holding the chosen service's raw value.
@@ -148,6 +162,12 @@ struct ChatPane: View {
     /// Compact keeps the island at its everyday width and a single
     /// column; full grows to the desktop layout with the sidebar.
     @AppStorage("chatFull") private var chatFull = false
+    /// Whose subscription is on duty; the capsule cycles it in place.
+    @AppStorage(ChatController.serviceKey) private var chatService = "claude"
+
+    private var service: ChatController.Service {
+        ChatController.Service(rawValue: chatService) ?? .claude
+    }
 
     var body: some View {
         ZStack {
@@ -170,6 +190,17 @@ struct ChatPane: View {
         .overlay(alignment: .topTrailing) {
             if hovered {
                 HStack(spacing: Theme.Space.xs) {
+                    Button {
+                        chatService = service.next.rawValue
+                    } label: {
+                        Text(service.label)
+                            .font(Theme.Fonts.caption)
+                            .foregroundStyle(Theme.textSecondary)
+                            .padding(.horizontal, Theme.Space.xs)
+                            .contentShape(Capsule())
+                    }
+                    .buttonStyle(PressableStyle())
+                    .help("Switch chat service")
                     HoverGlyphButton(
                         symbol: "chevron.left", scale: .s, tint: Theme.textSecondary
                     ) {

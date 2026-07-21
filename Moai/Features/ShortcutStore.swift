@@ -6,7 +6,12 @@ enum SystemAction: String, CaseIterable, Codable {
     case screenshot
     case lockScreen
     case darkMode
+    /// Legacy: still runs for grids that added it, no longer offered.
+    /// Nobody wants to empty the trash from the notch (user call,
+    /// 2026-07-21).
     case emptyTrash
+    case keepAwake
+    case muteToggle
 
     var title: String {
         switch self {
@@ -14,6 +19,8 @@ enum SystemAction: String, CaseIterable, Codable {
         case .lockScreen: return "Lock Screen"
         case .darkMode: return "Dark Mode"
         case .emptyTrash: return "Empty Trash"
+        case .keepAwake: return "Keep Awake"
+        case .muteToggle: return "Mute"
         }
     }
 
@@ -23,8 +30,13 @@ enum SystemAction: String, CaseIterable, Codable {
         case .lockScreen: return "lock.fill"
         case .darkMode: return "circle.lefthalf.filled"
         case .emptyTrash: return "trash"
+        case .keepAwake: return "cup.and.saucer.fill"
+        case .muteToggle: return "speaker.slash.fill"
         }
     }
+
+    /// The caffeinate child while Keep Awake is on; nil when off.
+    private static var caffeinate: Process?
 
     func run() {
         switch self {
@@ -47,6 +59,22 @@ enum SystemAction: String, CaseIterable, Codable {
             )
         case .emptyTrash:
             Self.runScript("tell application \"Finder\" to empty trash")
+        case .keepAwake:
+            // A tap holds the Mac awake, a second tap lets it rest.
+            if let running = Self.caffeinate, running.isRunning {
+                running.terminate()
+                Self.caffeinate = nil
+            } else {
+                let awake = Process()
+                awake.executableURL = URL(fileURLWithPath: "/usr/bin/caffeinate")
+                awake.arguments = ["-di"]
+                try? awake.run()
+                Self.caffeinate = awake
+            }
+        case .muteToggle:
+            Self.runScript(
+                "set volume output muted not (output muted of (get volume settings))"
+            )
         }
     }
 
@@ -95,10 +123,12 @@ final class ShortcutStore: ObservableObject {
         shortcuts.append(Shortcut(title: action.title, link: "", action: action))
     }
 
-    /// Actions not on the grid yet, offered by the add flow.
+    /// Actions not on the grid yet, offered by the add flow. Empty
+    /// Trash stays runnable for grids that have it, but is no longer
+    /// on the menu.
     var remainingActions: [SystemAction] {
         SystemAction.allCases.filter { action in
-            !shortcuts.contains { $0.action == action }
+            action != .emptyTrash && !shortcuts.contains { $0.action == action }
         }
     }
 

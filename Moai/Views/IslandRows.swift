@@ -42,10 +42,15 @@ struct MusicRow: View {
                     }
                     // Position is projected between the player's 1s
                     // polls, so the knob and clock glide instead of
-                    // stepping once a second.
+                    // stepping once a second. Times flank a bounded
+                    // bar: one tight line instead of a wire across
+                    // the whole island.
                     TimelineView(.periodic(from: .now, by: 0.5)) { context in
                         let livePosition = music.position(at: context.date)
-                        VStack(alignment: .leading, spacing: Theme.Space.snug) {
+                        HStack(spacing: Theme.Space.s) {
+                            Text(Self.clock(scrubPosition ?? livePosition))
+                                .font(Theme.Fonts.microMono)
+                                .foregroundStyle(Theme.textGhost)
                             Slider(
                                 value: Binding(
                                     get: { scrubPosition ?? livePosition },
@@ -61,13 +66,11 @@ struct MusicRow: View {
                             )
                             .controlSize(.mini)
                             .tint(accent)
-                            HStack {
-                                Text(Self.clock(scrubPosition ?? livePosition))
-                                Spacer()
-                                Text(Self.clock(playing.duration))
-                            }
-                            .font(Theme.Fonts.microMono)
-                            .foregroundStyle(Theme.textGhost)
+                            .frame(maxWidth: 190)
+                            Text(Self.clock(playing.duration))
+                                .font(Theme.Fonts.microMono)
+                                .foregroundStyle(Theme.textGhost)
+                            Spacer(minLength: 0)
                         }
                     }
                 }

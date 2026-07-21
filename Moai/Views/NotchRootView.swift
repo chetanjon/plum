@@ -122,9 +122,11 @@ struct NotchRootView: View {
         if !model.hasPhysicalNotch {
             if collapsedIsEmpty {
                 // A sliver, not a pill: idle on a monitor the island
-                // yields the chrome entirely; hover swells it back.
+                // yields the chrome, but stays findable. 120x14 with
+                // a firmer edge: at half brightness the old 84x10
+                // simply did not exist.
                 let grow: CGFloat = model.isHovering ? 1 : 0
-                return CGSize(width: 84 + 64 * grow, height: 10 + 20 * grow)
+                return CGSize(width: 120 + 56 * grow, height: 14 + 16 * grow)
             }
             let grow: CGFloat = model.isHovering ? 1 : 0
             return CGSize(
@@ -205,7 +207,7 @@ struct NotchRootView: View {
                             .strokeBorder(Theme.specularEdge, lineWidth: 1)
                             .opacity(
                                 model.state == .collapsed
-                                    ? (model.isHovering ? 0.9 : (idleEdgeOn ? 0.55 : 0.4))
+                                    ? (model.isHovering ? 0.9 : (idleEdgeOn ? 0.75 : 0.4))
                                     : 1
                             )
                     )

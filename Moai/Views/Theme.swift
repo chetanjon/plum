@@ -50,12 +50,14 @@ enum Theme {
 
     static let textPrimary = Color.white.opacity(0.92)
     static let textSecondary = Color.white.opacity(0.55)
-    static let textTertiary = Color.white.opacity(0.40)
+    // Raised 2026-07-21: the quiet tiers were disappearing on dimmed
+    // screens; legible-at-medium-brightness is the floor now.
+    static let textTertiary = Color.white.opacity(0.50)
     /// Meaningful guidance the user should be able to read: empty
     /// states, placeholders, footnotes. Brighter than tertiary.
-    static let textHint = Color.white.opacity(0.48)
+    static let textHint = Color.white.opacity(0.56)
     /// Purely decorative marks, never carries information.
-    static let textGhost = Color.white.opacity(0.28)
+    static let textGhost = Color.white.opacity(0.38)
 
     static let danger = Color(red: 1.0, green: 0.45, blue: 0.45)
 

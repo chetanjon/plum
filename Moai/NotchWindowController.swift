@@ -447,18 +447,45 @@ final class NotchWindowController {
 
     private func showDropDock(on screen: NSScreen) {
         let dock = ensureDropDock()
-        guard !dock.isVisible else { return }
+        if dock.isVisible {
+            // A hide may be mid-fade; breathe it back instead.
+            guard dock.alphaValue < 1 else { return }
+            NSAnimationContext.runAnimationGroup { context in
+                context.duration = 0.12
+                dock.animator().alphaValue = 1
+            }
+            return
+        }
         let size = dock.frame.size
-        dock.setFrameOrigin(NSPoint(
+        let origin = NSPoint(
             x: screen.frame.midX - size.width / 2,
             y: screen.frame.maxY - screen.frame.height * 0.34 - size.height / 2
-        ))
+        )
+        // Rise a few points while fading in; arriving, not popping.
+        dock.setFrameOrigin(NSPoint(x: origin.x, y: origin.y - 12))
+        dock.alphaValue = 0
         dock.orderFrontRegardless()
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.22
+            context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            dock.animator().alphaValue = 1
+            dock.animator().setFrame(
+                NSRect(origin: origin, size: size), display: true
+            )
+        }
     }
 
     private func hideDropDock() {
-        guard let dropDock, dropDock.isVisible else { return }
-        dropDock.orderOut(nil)
+        guard let dropDock, dropDock.isVisible, dropDock.alphaValue > 0 else { return }
+        NSAnimationContext.runAnimationGroup({ context in
+            context.duration = 0.15
+            dropDock.animator().alphaValue = 0
+        }, completionHandler: { [weak dropDock] in
+            // A show may have raced the fade; only stow a faded dock.
+            if let dropDock, dropDock.alphaValue == 0 {
+                dropDock.orderOut(nil)
+            }
+        })
     }
 
     /// Publish a coarse 0...1 pointer position across the hover zone

@@ -23,6 +23,7 @@ final class NotchViewModel: ObservableObject {
     enum Pane {
         case none
         case settings
+        case welcome
     }
 
     @Published var state: IslandState = .collapsed
@@ -41,6 +42,34 @@ final class NotchViewModel: ObservableObject {
     /// Debug builds show the drop bubble on request; the window
     /// controller owns the panel, so it hangs the hook here.
     var onDebugDropDock: (() -> Void)?
+
+    /// Which page of the first-run tour is showing.
+    @Published var welcomeStep = 0
+
+    private let onboardedKey = "moai.onboarded"
+
+    /// First launch only: the island introduces itself, once. Marked
+    /// seen at show time; Settings offers a replay.
+    func showWelcomeIfFirstRun() {
+        guard !UserDefaults.standard.bool(forKey: onboardedKey) else { return }
+        UserDefaults.standard.set(true, forKey: onboardedKey)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { [weak self] in
+            guard let self, self.state == .collapsed else { return }
+            self.welcomeStep = 0
+            self.pane = .welcome
+            self.expand()
+        }
+    }
+
+    func replayWelcome() {
+        welcomeStep = 0
+        pane = .welcome
+    }
+
+    func finishWelcome() {
+        pane = .none
+        collapse()
+    }
 
     /// The island opened itself for an incoming drag; if the drag
     /// leaves without dropping it closes again.
@@ -145,6 +174,7 @@ final class NotchViewModel: ObservableObject {
         clipboard.start()
         stats.start()
         events.startGlanceTicker()
+        showWelcomeIfFirstRun()
         #if DEBUG
         // Terminal-driven verb testing, Debug builds only. Keystrokes
         // can't be injected into the non-activating panel (they land in
@@ -197,6 +227,15 @@ final class NotchViewModel: ObservableObject {
                     }) {
                         self.shelf.remove(item)
                     }
+                    return
+                }
+                // "debug welcome <n>" opens tour page n for screenshots.
+                if text.hasPrefix("debug welcome") {
+                    let tail = text.dropFirst("debug welcome".count)
+                        .trimmingCharacters(in: .whitespaces)
+                    self.welcomeStep = min(2, max(0, Int(tail) ?? 0))
+                    self.pane = .welcome
+                    self.expand()
                     return
                 }
                 // "debug dropdock" shows the mid-screen drop bubble.

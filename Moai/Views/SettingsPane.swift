@@ -5,6 +5,8 @@ import SwiftUI
 /// rows separated by hairlines instead of floating in a bare scroll.
 struct SettingsPane: View {
     @ObservedObject var music: MusicController
+    /// Reopens the first-run tour.
+    var onReplayTour: (() -> Void)?
 
     @State private var launchAtLogin = false
     @State private var apiKeys: [AIProvider: String] = [:]
@@ -269,6 +271,13 @@ struct SettingsPane: View {
             Text("Motion follows the system Reduce Motion setting.")
                 .font(Theme.Fonts.caption)
                 .foregroundStyle(Theme.textGhost)
+            if let onReplayTour {
+                Button("Show the welcome tour again", action: onReplayTour)
+                    .buttonStyle(.plain)
+                    .font(Theme.Fonts.caption)
+                    .foregroundStyle(Theme.textTertiary)
+                    .padding(.top, Theme.Space.xs)
+            }
         }
         .padding(.leading, Theme.Space.xs)
         .padding(.top, Theme.Space.xs)

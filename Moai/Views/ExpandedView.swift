@@ -67,9 +67,13 @@ struct ExpandedView: View {
                 .fill(Theme.hairlineFaint)
                 .frame(height: 1)
 
-            if model.pane == .settings {
+            switch model.pane {
+            case .settings:
                 settingsSection
-            } else {
+            case .welcome:
+                WelcomeView(model: model)
+                    .transition(.opacity)
+            case .none:
                 Switcher(model: model, todayEnabled: todayEnabled, tools: enabledTools)
                 panel
                     .transition(.opacity)
@@ -190,8 +194,10 @@ struct ExpandedView: View {
                 .foregroundStyle(Theme.textPrimary)
             Spacer()
         }
-        SettingsPane(music: music)
-            .frame(height: Theme.Panel.settings)
+        SettingsPane(music: music) {
+            withAnimation(Theme.Motion.content) { model.replayWelcome() }
+        }
+        .frame(height: Theme.Panel.settings)
     }
 }
 

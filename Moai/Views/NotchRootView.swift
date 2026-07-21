@@ -122,29 +122,13 @@ struct NotchRootView: View {
         VStack(spacing: 0) {
             ZStack(alignment: .top) {
                 // The droplet clings to the top edge of the screen; its
-                // meniscus shoulders keep it flush with the notch.
-                // One constant fill + an opacity-animated black layer:
-                // switching fill *styles* between states makes SwiftUI
-                // cross-fade the whole shape (a ghosted double image)
-                // instead of morphing it.
-                ZStack {
-                    // Real glass while open: what's behind the island
-                    // bleeds through the smoked tint. Collapsed stays
-                    // opaque black (and pays nothing for blur).
-                    if model.state != .collapsed {
-                        VisualEffectBlur()
-                            .clipShape(islandShape)
-                            .transition(.opacity)
-                    }
-                    islandShape
-                        .fill(Theme.backdrop)
-                        .opacity(model.state == .collapsed ? 1 : 0.85)
-                }
-                    .overlay(
-                        islandShape
-                            .fill(Color.black)
-                            .opacity(model.state == .collapsed ? 1 : 0)
-                    )
+                // meniscus shoulders keep it flush with the notch. One
+                // opaque black fill in every state: the blurred glass
+                // let the desktop bleed through and read as clutter,
+                // black is the island's true material (user call,
+                // 2026-07-20).
+                islandShape
+                    .fill(Color.black)
                     // Album-colored aurora drifting inside the glass.
                     // Fades out fast on close, a slow fade inside the
                     // shrinking clip reads as shimmer.

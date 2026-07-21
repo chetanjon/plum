@@ -264,15 +264,18 @@ final class ActionEngine {
         // or "cafeteria" can't trigger it.
         let words = Set(lower.split(separator: " ").map(String.init))
         if lower.contains("noise") || words.contains("rain")
+            || words.contains("fire") || words.contains("fireplace")
             || words.contains("cafe") || lower.contains("coffee shop") {
             let color: NoiseEngine.NoiseColor =
                 words.contains("rain") ? .rain :
+                (words.contains("fire") || words.contains("fireplace")) ? .fire :
                 (words.contains("cafe") || lower.contains("coffee")) ? .cafe :
                 lower.contains("white") ? .white :
                 lower.contains("pink") ? .pink : .brown
             model.ambience.play(color)
             switch color {
             case .rain: return "Rain on. Say stop noise when done."
+            case .fire: return "Fire on. Say stop noise when done."
             case .cafe: return "Cafe hum on. Say stop noise when done."
             default: return "\(color.rawValue.capitalized) noise on. Say stop noise when done."
             }

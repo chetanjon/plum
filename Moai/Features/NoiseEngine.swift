@@ -70,6 +70,19 @@ final class NoiseEngine {
         }
     }
 
+    /// Every recording is converted to this one format at load and the
+    /// chain is wired once, never rewired. The recordings ship in three
+    /// different formats (rain 48k stereo, fire 48k mono, cafe 44.1k
+    /// stereo); scheduling one through a chain wired for another played
+    /// silence, and rewiring a running engine raced the UI.
+    private static let chainFormat = AVAudioFormat(
+        standardFormatWithSampleRate: 48000, channels: 2
+    )!
+
+    /// Loop at most this much of a recording. The six-minute files
+    /// cost 138 MB each as float PCM; two minutes loops just as well.
+    private static let maxLoopSeconds: Double = 120
+
     // MARK: Voicings
 
     /// How each recording is seated. Rate below 1 spaces the events
@@ -204,23 +217,73 @@ final class NoiseEngine {
         engine.attach(player)
         engine.attach(pitch)
         engine.attach(eq)
+        // Wired once, at the one format every buffer is converted to.
+        engine.connect(player, to: pitch, format: Self.chainFormat)
+        engine.connect(pitch, to: eq, format: Self.chainFormat)
+        engine.connect(eq, to: engine.mainMixerNode, format: Self.chainFormat)
         filePlayer = player
         timePitch = pitch
         fileEQ = eq
     }
 
-    private func loadBuffer(_ color: NoiseColor) -> AVAudioPCMBuffer? {
-        if let cached = buffers[color] { return cached }
-        guard let url = Self.fileURL(for: color),
-              let file = try? AVAudioFile(forReading: url),
-              let buffer = AVAudioPCMBuffer(
-                  pcmFormat: file.processingFormat,
-                  frameCapacity: AVAudioFrameCount(file.length)
-              ),
-              (try? file.read(into: buffer)) != nil
+    /// Decode and convert off the main thread; the completion runs on
+    /// main. Decoding six minutes of AAC at click time froze the click.
+    private func loadBuffer(
+        _ color: NoiseColor,
+        completion: @escaping (AVAudioPCMBuffer?) -> Void
+    ) {
+        if let cached = buffers[color] {
+            completion(cached)
+            return
+        }
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let buffer = Self.decodeBuffer(color)
+            DispatchQueue.main.async {
+                guard let self else { return }
+                if let buffer { self.buffers[color] = buffer }
+                completion(buffer)
+            }
+        }
+    }
+
+    private static func decodeBuffer(_ color: NoiseColor) -> AVAudioPCMBuffer? {
+        guard let url = fileURL(for: color),
+              let file = try? AVAudioFile(forReading: url) else { return nil }
+        let sourceFormat = file.processingFormat
+        let frames = AVAudioFrameCount(min(
+            file.length,
+            AVAudioFramePosition(maxLoopSeconds * sourceFormat.sampleRate)
+        ))
+        guard let raw = AVAudioPCMBuffer(pcmFormat: sourceFormat, frameCapacity: frames),
+              (try? file.read(into: raw, frameCount: frames)) != nil,
+              raw.frameLength > 0
         else { return nil }
-        buffers[color] = buffer
-        return buffer
+        if sourceFormat == chainFormat { return raw }
+        guard let converter = AVAudioConverter(from: sourceFormat, to: chainFormat) else {
+            return nil
+        }
+        let capacity = AVAudioFrameCount(
+            (Double(raw.frameLength) * chainFormat.sampleRate / sourceFormat.sampleRate)
+                .rounded(.up)
+        ) + 1024
+        guard let converted = AVAudioPCMBuffer(
+            pcmFormat: chainFormat, frameCapacity: capacity
+        ) else { return nil }
+        var fed = false
+        var conversionError: NSError?
+        let status = converter.convert(to: converted, error: &conversionError) { _, outStatus in
+            if fed {
+                outStatus.pointee = .endOfStream
+                return nil
+            }
+            fed = true
+            outStatus.pointee = .haveData
+            return raw
+        }
+        guard conversionError == nil, status != .error, converted.frameLength > 0 else {
+            return nil
+        }
+        return converted
     }
 
     private func startFile(_ color: NoiseColor) {
@@ -229,43 +292,44 @@ final class NoiseEngine {
             fadePlayer(to: fileLevel * currentTrim, duration: 0.6)
             return
         }
-        guard let buffer = loadBuffer(color) else { return }
-        buildFileChain()
-        guard let player = filePlayer, let pitch = timePitch, let eq = fileEQ else { return }
+        loadBuffer(color) { [weak self] buffer in
+            guard let self, let buffer else { return }
+            // The user may have moved on while the file decoded.
+            guard self.isRunning, self.current == color else { return }
+            self.buildFileChain()
+            guard let player = self.filePlayer,
+                  let pitch = self.timePitch,
+                  let eq = self.fileEQ else { return }
 
-        let voice = Self.voicing(for: color)
-        pitch.rate = voice.rate
-        pitch.pitch = voice.pitch
-        for (index, band) in eq.bands.enumerated() {
-            if index < voice.bands.count {
-                let (type, frequency, gainDB, width) = voice.bands[index]
-                band.filterType = type
-                band.frequency = frequency
-                band.gain = gainDB
-                band.bandwidth = width
-                band.bypass = false
-            } else {
-                band.bypass = true
+            let voice = Self.voicing(for: color)
+            pitch.rate = voice.rate
+            pitch.pitch = voice.pitch
+            for (index, band) in eq.bands.enumerated() {
+                if index < voice.bands.count {
+                    let (type, frequency, gainDB, width) = voice.bands[index]
+                    band.filterType = type
+                    band.frequency = frequency
+                    band.gain = gainDB
+                    band.bandwidth = width
+                    band.bypass = false
+                } else {
+                    band.bypass = true
+                }
             }
-        }
-        currentTrim = voice.trim
+            self.currentTrim = voice.trim
 
-        // (Re)wire at this buffer's format; the fade-from-zero hides
-        // any connection transient.
-        engine.connect(player, to: pitch, format: buffer.format)
-        engine.connect(pitch, to: eq, format: buffer.format)
-        engine.connect(eq, to: engine.mainMixerNode, format: buffer.format)
-        engine.mainMixerNode.outputVolume = 1
-        if !engine.isRunning {
-            try? engine.start()
-        }
+            self.engine.mainMixerNode.outputVolume = 1
+            if !self.engine.isRunning {
+                try? self.engine.start()
+            }
 
-        player.stop()
-        player.scheduleBuffer(buffer, at: nil, options: .loops)
-        player.volume = 0
-        player.play()
-        fadePlayer(to: fileLevel * voice.trim, duration: 0.8)
-        playerColor = color
+            player.stop()
+            player.scheduleBuffer(buffer, at: nil, options: .loops)
+            player.volume = 0
+            player.play()
+            self.fadePlayer(to: self.fileLevel * voice.trim, duration: 0.8)
+            self.playerColor = color
+        }
     }
 
     private func stopFile(fade: TimeInterval) {

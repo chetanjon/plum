@@ -294,6 +294,13 @@ final class NotchViewModel: ObservableObject {
                     self.wantsShortcutAdd = true
                     return
                 }
+                // "debug addshortcut <text>" runs the same store path
+                // the add field commits through.
+                if text.hasPrefix("debug addshortcut ") {
+                    let link = String(text.dropFirst("debug addshortcut ".count))
+                    self.shortcuts.add(title: "", link: link)
+                    return
+                }
                 // "debug listen" runs a real 4-second capture through
                 // the normal deliver path; ambient audio becomes the
                 // transcript and proves the chain on real hardware.

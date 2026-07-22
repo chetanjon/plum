@@ -41,6 +41,10 @@ enum SystemAction: String, CaseIterable, Codable {
     /// The caffeinate child while Keep Awake is on; nil when off.
     private static var caffeinate: Process?
 
+    /// Whether Keep Awake is currently holding the Mac up; the chip
+    /// itself looks the same either way, so the caller says it.
+    static var keepAwakeActive: Bool { caffeinate?.isRunning == true }
+
     func run() {
         switch self {
         case .screenshot:
@@ -133,6 +137,10 @@ final class ShortcutStore: ObservableObject {
         let cleanTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
         let cleanLink = link.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !cleanLink.isEmpty else { return }
+        // The same destination twice is a misfire, not a wish.
+        guard !shortcuts.contains(where: {
+            $0.link.caseInsensitiveCompare(cleanLink) == .orderedSame
+        }) else { return }
         let name = cleanTitle.isEmpty ? Self.suggestedTitle(for: cleanLink) : cleanTitle
         shortcuts.append(Shortcut(title: name, link: cleanLink))
     }
@@ -210,7 +218,8 @@ final class ShortcutStore: ObservableObject {
     }
 
     static func suggestedTitle(for link: String) -> String {
-        guard let url = resolvedURL(for: link) else { return link }
+        // A bare app name ("notes") stays a name; wear it capitalized.
+        guard let url = resolvedURL(for: link) else { return link.capitalized }
         if url.isFileURL {
             return url.deletingPathExtension().lastPathComponent
         }

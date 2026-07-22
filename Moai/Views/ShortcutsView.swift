@@ -48,6 +48,15 @@ struct ShortcutsView: View {
                             ShortcutChip(shortcut: shortcut, store: store) {
                                 if store.open(shortcut) {
                                     model.collapse()
+                                    // A toggle with no face needs a voice:
+                                    // Keep Awake looks identical on and off.
+                                    if shortcut.action == .keepAwake {
+                                        model.flashGlance(
+                                            SystemAction.keepAwakeActive
+                                                ? "Keeping the Mac awake"
+                                                : "Letting the Mac rest"
+                                        )
+                                    }
                                 } else {
                                     // Silence reads as broken; say it.
                                     model.collapse()
@@ -210,12 +219,21 @@ struct ShortcutsView: View {
         draftTitle = ""
         draftLink = ""
         adding = true
-        linkFieldFocused = true
+        // Focus requested in the same transaction that creates the
+        // field gets dropped; a beat later it lands. Without this,
+        // typing after tapping Add went nowhere.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) {
+            linkFieldFocused = true
+        }
     }
 
     private func commitAdd() {
-        guard !draftLink.isEmpty else { return }
-        store.add(title: draftTitle, link: draftLink)
+        // Whichever field holds text wins; someone who typed "notes"
+        // into Name meant the same thing and silence taught nothing.
+        let link = draftLink.isEmpty ? draftTitle : draftLink
+        let title = draftLink.isEmpty ? "" : draftTitle
+        guard !link.isEmpty else { return }
+        store.add(title: title, link: link)
         adding = false
     }
 }

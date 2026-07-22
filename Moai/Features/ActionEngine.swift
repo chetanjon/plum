@@ -259,6 +259,11 @@ final class ActionEngine {
         }
 
         // System actions, spoken: the same four the Go grid offers.
+        if ["screen record", "record screen", "screen recording",
+            "record my screen", "start screen recording"].contains(lower) {
+            SystemAction.screenRecord.run()
+            return "Recorder's up. Pick a window or an area, then hit Record."
+        }
         if ["screenshot", "take a screenshot", "grab a screenshot"].contains(lower) {
             SystemAction.screenshot.run()
             return "Crosshairs up. It lands on the clipboard."
@@ -495,7 +500,7 @@ final class ActionEngine {
     play · pause · next · open figma · quit slack
     left half · right half · fill · center
     note: an idea · notes · find parcel
-    screenshot · lock screen · dark mode · voice log
+    screenshot · screen record · lock screen · dark mode · voice log
     Anything else is a question; the model answers it.
     """
 

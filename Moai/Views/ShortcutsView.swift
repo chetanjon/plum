@@ -97,7 +97,7 @@ struct ShortcutsView: View {
                 .textFieldStyle(.plain)
                 .font(Theme.Fonts.body)
                 .frame(width: 110)
-            TextField("github.com, /Applications/…, ~/folder", text: $draftLink)
+            TextField("notes · github.com · ~/folder", text: $draftLink)
                 .textFieldStyle(.plain)
                 .font(Theme.Fonts.body)
                 .focused($linkFieldFocused)

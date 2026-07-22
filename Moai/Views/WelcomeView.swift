@@ -7,7 +7,10 @@ struct WelcomeView: View {
     @ObservedObject var model: NotchViewModel
     @Environment(\.moaiAccent) private var accent
 
-    private let steps = 3
+    private let steps = 4
+    /// The permissions page's one-tap state.
+    @State private var primed = false
+    @State private var priming = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Space.l) {
@@ -28,8 +31,8 @@ struct WelcomeView: View {
                 title: "I live up here.",
                 lines: [
                     ("cursorarrow.motionlines", "Glide to the top of the screen and I open."),
-                    ("mic.fill", "Hold the notch, tap the mic, or hit Option-Space anywhere, and talk."),
-                    ("lock.fill", "Everything runs on this Mac. Your words never leave it."),
+                    ("mic.fill", "Tap the mic and talk, or just type in the bar."),
+                    ("bolt.fill", "The verbs run on this Mac, keyless and instant."),
                 ]
             )
         case 1:
@@ -45,7 +48,42 @@ struct WelcomeView: View {
                     verb("cancel my 3pm")
                     verb("find parcel")
                 }
-                Text("macOS will ask for the mic and speech the first time. That is the deal working; both stay on this Mac.")
+                Text("Recognition is Apple's standard dictation, the same path Notes and Messages use. Your music ducks while you speak.")
+                    .font(Theme.Fonts.caption)
+                    .foregroundStyle(Theme.textHint)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        case 2:
+            VStack(alignment: .leading, spacing: Theme.Space.m) {
+                Text("Say yes once.")
+                    .font(Theme.Fonts.title)
+                    .foregroundStyle(Theme.textPrimary)
+                Text("The island uses the mic and speech for talking, and Reminders and Calendar for your day. One tap asks for all four now, instead of ambushing you one feature at a time.")
+                    .font(Theme.Fonts.body)
+                    .foregroundStyle(Theme.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Button {
+                    guard !priming, !primed else { return }
+                    priming = true
+                    Task {
+                        await PermissionPrimer.primeAll()
+                        priming = false
+                        primed = true
+                    }
+                } label: {
+                    Text(primed
+                        ? "Asked. Anything denied lives in System Settings."
+                        : priming ? "Asking…" : "Allow mic, speech, reminders, calendar")
+                        .font(Theme.Fonts.body)
+                        .foregroundStyle(primed ? Theme.textSecondary : .black)
+                        .padding(.horizontal, Theme.Space.l)
+                        .padding(.vertical, Theme.Space.s)
+                        .background(
+                            Capsule().fill(primed ? Theme.hairlineFaint : accent)
+                        )
+                }
+                .buttonStyle(PressableStyle())
+                Text("Windows snapping asks for Accessibility separately, the first time you say left half.")
                     .font(Theme.Fonts.caption)
                     .foregroundStyle(Theme.textHint)
                     .fixedSize(horizontal: false, vertical: true)

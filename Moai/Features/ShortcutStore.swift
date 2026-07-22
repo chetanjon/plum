@@ -12,6 +12,7 @@ enum SystemAction: String, CaseIterable, Codable {
     case emptyTrash
     case keepAwake
     case muteToggle
+    case screenRecord
 
     var title: String {
         switch self {
@@ -21,6 +22,7 @@ enum SystemAction: String, CaseIterable, Codable {
         case .emptyTrash: return "Empty Trash"
         case .keepAwake: return "Keep Awake"
         case .muteToggle: return "Mute"
+        case .screenRecord: return "Screen Record"
         }
     }
 
@@ -32,6 +34,7 @@ enum SystemAction: String, CaseIterable, Codable {
         case .emptyTrash: return "trash"
         case .keepAwake: return "cup.and.saucer.fill"
         case .muteToggle: return "speaker.slash.fill"
+        case .screenRecord: return "record.circle"
         }
     }
 
@@ -41,11 +44,21 @@ enum SystemAction: String, CaseIterable, Codable {
     func run() {
         switch self {
         case .screenshot:
-            // Interactive area capture straight to the clipboard; the
-            // island has already slipped shut by the time this runs.
+            // Interactive area capture saved as a normal screenshot
+            // file, right where the system saves its own, so it is
+            // on the desktop as well as in the island's clips
+            // (clipboard-only capture read as "it vanished").
+            let formatter = DateFormatter()
+            formatter.dateFormat = "yyyy-MM-dd 'at' HH.mm.ss"
+            let stamp = formatter.string(from: Date())
+            let configured = UserDefaults(suiteName: "com.apple.screencapture")?
+                .string(forKey: "location")
+            let directory = configured.map { ($0 as NSString).expandingTildeInPath }
+                ?? FileManager.default.homeDirectoryForCurrentUser
+                    .appendingPathComponent("Desktop").path
             let capture = Process()
             capture.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
-            capture.arguments = ["-ic"]
+            capture.arguments = ["-i", "\(directory)/Screenshot \(stamp).png"]
             try? capture.run()
         case .lockScreen:
             let sleep = Process()
@@ -74,6 +87,12 @@ enum SystemAction: String, CaseIterable, Codable {
         case .muteToggle:
             Self.runScript(
                 "set volume output muted not (output muted of (get volume settings))"
+            )
+        case .screenRecord:
+            // The native Screenshot toolbar (the shift-command-5
+            // surface) with its recording options; no reinvention.
+            NSWorkspace.shared.open(
+                URL(fileURLWithPath: "/System/Applications/Utilities/Screenshot.app")
             )
         }
     }

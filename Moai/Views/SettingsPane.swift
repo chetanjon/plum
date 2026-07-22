@@ -47,7 +47,6 @@ struct SettingsPane: View {
     @AppStorage("idleEdgeOn") private var idleEdgeOn = true
     @AppStorage("accentMode") private var accentMode = "silver"
     @AppStorage("glanceMusic") private var glanceMusic = true
-    @AppStorage("glanceSession") private var glanceSession = true
     @AppStorage("glanceNextEvent") private var glanceNextEvent = true
     @AppStorage("glanceIdle") private var glanceIdle = "none"
 
@@ -171,8 +170,6 @@ struct SettingsPane: View {
                 }
                 section("Glance", reveal: 2) {
                     toggleRow("Song name while playing", $glanceMusic)
-                    divider
-                    toggleRow("Session phase", $glanceSession)
                     divider
                     toggleRow("Event coming up", $glanceNextEvent)
                     if !showCalendar {

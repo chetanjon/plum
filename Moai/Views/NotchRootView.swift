@@ -23,7 +23,6 @@ struct NotchRootView: View {
     @AppStorage("accentMode") private var accentMode = "silver"
     // What the collapsed glance may show, user-tunable in Settings.
     @AppStorage("glanceMusic") private var glanceMusic = true
-    @AppStorage("glanceSession") private var glanceSession = true
     @AppStorage("glanceNextEvent") private var glanceNextEvent = true
     // "none" by default: an idle island earns no width, especially on
     // monitors where the pill sits over working windows (user call,
@@ -73,7 +72,9 @@ struct NotchRootView: View {
     /// Width the right-of-camera glance needs on notched displays.
     private var notchSideNeed: CGFloat {
         if model.glanceToast != nil { return 124 }
-        if (focus.isActive || timer.isActive), glanceSession { return 92 }
+        // A session shows only its left-wing ring and countdown; the
+        // right-side FOCUS 1 OF 4 label was width without value
+        // (user call, 2026-07-21).
         if upcomingEvent != nil { return 112 }
         if music.nowPlaying?.isPlaying == true, glanceMusic { return 107 }
         switch glanceIdle {
@@ -428,8 +429,6 @@ struct NotchRootView: View {
     private var notchSideContent: some View {
         if let toast = model.glanceToast {
             toastGlance(toast)
-        } else if (focus.isActive || timer.isActive), glanceSession {
-            sessionHint
         } else if let next = upcomingEvent {
             upcomingGlance(next, width: 100)
         } else if let playing = music.nowPlaying, playing.isPlaying, glanceMusic {
@@ -513,17 +512,6 @@ struct NotchRootView: View {
         }
         guard focusStats.streak >= 2 else { return today }
         return "\(focusStats.streak)d streak · \(today)"
-    }
-
-    private var sessionHint: some View {
-        Text(
-            focus.isActive
-                ? (focus.phase == .work ? "FOCUS \(focus.roundInSet) OF 4" : "BREAK")
-                : "TIMER"
-        )
-        .font(Theme.Fonts.micro)
-        .tracking(1.3)
-        .foregroundStyle(Theme.textTertiary)
     }
 
     private var clockGlance: some View {

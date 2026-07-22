@@ -689,9 +689,11 @@ final class NotchViewModel: ObservableObject {
                 isWorking = true
                 let verb = await AIService.translateToVerb(text)
                 isWorking = false
+                logVoice(text, outcome: "model said: \(verb ?? "nothing")")
                 if let verb, verb.lowercased() != text.lowercased(),
                    let acted = await engine.handle(verb) {
                     answer = acted
+                    logVoice(text, outcome: "\(verb) \u{2192} \(acted)")
                     return
                 }
             }

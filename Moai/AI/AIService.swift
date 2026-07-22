@@ -53,9 +53,9 @@ struct AIService {
         brown noise / stop noise / play / pause / next / previous / \
         open <app or folder> / quit <app> / left half / right half / fill / \
         center / note: <text> / notes / find <words> / screenshot / \
-        lock screen / dark mode
-        Reply with the single command only, no quotes, no explanation. \
-        If nothing fits, reply NONE.
+        screen record / lock screen / dark mode / light mode
+        Reply with one command copied exactly from the list, no other \
+        words, no quotes, no explanation. If nothing fits, reply NONE.
         Request: \(utterance)
         """
         do {
@@ -86,10 +86,54 @@ struct AIService {
                   cleaned.uppercased() != "NONE",
                   cleaned.count < 120
             else { return nil }
-            return cleaned
+            return rescueParaphrase(cleaned)
         } catch {
             return nil
         }
+    }
+
+    /// Fixed-form commands the engine accepts verbatim. The small
+    /// model sometimes wraps one in its own words ("set screen to
+    /// light mode"); the longest command found inside the reply is
+    /// the intent. Parameterized commands (remind, note:, open) are
+    /// left untouched, their own words are the payload.
+    private static let canonicalCommands = [
+        "what's next", "what's due", "stop focus", "stop timer",
+        "brown noise", "stop noise", "left half", "right half",
+        "screen record", "lock screen", "dark mode", "light mode",
+        "screenshot", "previous", "agenda", "center", "notes",
+        "pause", "next", "play", "rain", "fire", "cafe", "fill", "undo",
+    ]
+
+    private static let parameterizedPrefixes = [
+        "remind", "schedule", "cancel", "move", "done with",
+        "focus", "timer", "open", "quit", "note", "find",
+    ]
+
+    private static func rescueParaphrase(_ reply: String) -> String {
+        let lowered = reply.lowercased()
+        guard !canonicalCommands.contains(lowered),
+              !parameterizedPrefixes.contains(where: { lowered.hasPrefix($0) })
+        else { return reply }
+        // Word-set containment, order-blind: "change screen mode to
+        // light" holds every word of "light mode" even though the
+        // phrase never appears. The command with the most matched
+        // words wins; whole words only, so display never plays.
+        let words = Set(
+            lowered.split(whereSeparator: { !$0.isLetter && $0 != "'" })
+                .map(String.init)
+        )
+        let rescued = canonicalCommands
+            .filter { command in
+                command.split(separator: " ")
+                    .allSatisfy { words.contains(String($0)) }
+            }
+            .max { a, b in
+                let aRank = (a.split(separator: " ").count, a.count)
+                let bRank = (b.split(separator: " ").count, b.count)
+                return aRank < bRank
+            }
+        return rescued ?? reply
     }
 
     /// Streams the answer as text deltas so the island can type it

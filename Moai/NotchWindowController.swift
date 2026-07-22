@@ -156,12 +156,38 @@ final class NotchWindowController {
             )
         }
         viewModel.notchSize = notchSize
+        viewModel.notchChin = Self.housingOverhang(on: screen)
         return NSRect(
             x: screen.frame.midX - panelSize.width / 2,
             y: screen.frame.maxY - panelSize.height,
             width: panelSize.width,
             height: panelSize.height
         )
+    }
+
+    /// How far the camera glass extends past the reported safe area,
+    /// in points, at the screen's current scaling. The housing is a
+    /// fixed number of native pixels (the safe area exactly, at the
+    /// panel's default half-native scaling); at scaled resolutions
+    /// the same glass spans more points than macOS admits, and the
+    /// pill must grow that difference or hardware pokes out. Guessed
+    /// constants went both short and long (user, 2026-07-22, "fill
+    /// exactly"); this computes it.
+    private static func housingOverhang(on screen: NSScreen) -> CGFloat {
+        let safeArea = screen.safeAreaInsets.top
+        guard safeArea > 0,
+              let id = screen.deviceDescription[
+                  NSDeviceDescriptionKey("NSScreenNumber")
+              ] as? CGDirectDisplayID,
+              let modes = CGDisplayCopyAllDisplayModes(id, nil) as? [CGDisplayMode],
+              let native = modes.first(where: {
+                  $0.ioFlags & UInt32(kDisplayModeNativeFlag) != 0
+              })
+        else { return 0 }
+        let defaultLogicalWidth = CGFloat(native.pixelWidth) / 2
+        guard defaultLogicalWidth > 0 else { return 0 }
+        let housing = safeArea * (screen.frame.width / defaultLogicalWidth)
+        return max(0, housing - safeArea)
     }
 
     func show() {

@@ -5,6 +5,7 @@ import SwiftUI
 struct FocusPanel: View {
     @ObservedObject var focus: FocusController
     @ObservedObject var timer: CountdownController
+    @ObservedObject var stopwatch: StopwatchController
     @ObservedObject var stats: FocusStatsStore
     @Environment(\.moaiAccent) private var accent
 
@@ -13,6 +14,8 @@ struct FocusPanel: View {
             activeCard
         } else if timer.isActive {
             timerCard
+        } else if stopwatch.isActive {
+            stopwatchCard
         } else {
             presets
         }
@@ -39,6 +42,7 @@ struct FocusPanel: View {
                 ForEach([5, 10, 20], id: \.self) { minutes in
                     timerChip(minutes)
                 }
+                stopwatchChip
             }
             .padding(.top, Theme.Space.xs)
             goalRow
@@ -197,6 +201,56 @@ struct FocusPanel: View {
                 .contentShape(Capsule())
         }
         .buttonStyle(PressableStyle())
+    }
+
+    /// The count-up door, beside the countdown chips.
+    private var stopwatchChip: some View {
+        Button {
+            stopwatch.start()
+        } label: {
+            HStack(spacing: Theme.Space.snug) {
+                Image(systemName: "stopwatch")
+                    .font(Theme.Fonts.icon(.xs))
+                Text("stopwatch")
+            }
+            .font(Theme.Fonts.caption)
+            .foregroundStyle(Theme.textSecondary)
+            .padding(.horizontal, Theme.Space.m)
+            .frame(minHeight: 22)
+            .background(Capsule().fill(Theme.surface))
+            .overlay(Capsule().strokeBorder(Theme.hairlineFaint, lineWidth: 1))
+            .contentShape(Capsule())
+        }
+        .buttonStyle(PressableStyle())
+    }
+
+    // MARK: Stopwatch running
+
+    private var stopwatchCard: some View {
+        VStack(alignment: .leading, spacing: Theme.Space.xl) {
+            HStack(spacing: Theme.Space.xl) {
+                ZStack {
+                    Circle()
+                        .strokeBorder(accent.opacity(0.15), lineWidth: 3)
+                        .frame(width: 54, height: 54)
+                    Image(systemName: "stopwatch")
+                        .font(Theme.Fonts.icon(.m))
+                        .foregroundStyle(Theme.textSecondary)
+                }
+                VStack(alignment: .leading, spacing: 3) {
+                    SectionHeader(title: "Stopwatch", tint: accent)
+                    Text(stopwatch.display)
+                        .font(Theme.Fonts.display)
+                        .foregroundStyle(Theme.textPrimary)
+                }
+                Spacer()
+                CloseButton(scale: .s) {
+                    stopwatch.stop()
+                }
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.top, Theme.Space.xs)
     }
 
     // MARK: Plain timer running

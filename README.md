@@ -20,7 +20,7 @@ First open: macOS will ask once. System Settings, Privacy and Security, Open Any
 - `schedule lunch with sarah friday at 1` becomes a real Calendar event.
 - `agenda` or `today` drops today's calendar out of the notch.
 - `focus 25` starts a pomodoro with synthesized brown noise, its progress ring live beside the notch. `stop focus` ends it.
-- `timer 10` runs a countdown in the wing. `stopwatch` counts up until you say `stop stopwatch`; the reading is the answer.
+- `timer 10` runs a countdown in the wing. `stopwatch` counts up until you say `stop stopwatch`; the reading is the answer. It also lives as a chip in the Focus tab.
 - Running sessions mark the closed pill with a small symbol (the progress ring, or a stopwatch glyph), never digits; numbers live in the open island.
 - `brown noise` / `white noise` / `pink noise`, generated live, no audio files, works offline.
 - `note: something` captures locally. `notes` lists. `clear notes` wipes.

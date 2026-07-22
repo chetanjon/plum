@@ -217,7 +217,12 @@ struct ExpandedView: View {
             NotesView(model: model)
                 .frame(maxHeight: Theme.Panel.list, alignment: .top)
         case .focus:
-            FocusPanel(focus: focus, timer: timer, stats: model.focusStats)
+            FocusPanel(
+                focus: focus,
+                timer: timer,
+                stopwatch: stopwatch,
+                stats: model.focusStats
+            )
                 .frame(height: Theme.Panel.focus)
         case .chat:
             ChatPane(chat: model.chat)

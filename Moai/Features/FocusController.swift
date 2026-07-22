@@ -48,31 +48,43 @@ final class CountdownController: ObservableObject {
     }
 }
 
-/// Counts up until told to stop; the reading is the whole point.
+/// A real stopwatch, not a timer in disguise: stop HOLDS the reading
+/// on screen, start rolls again from where it stood, and only reset
+/// clears it (user, 2026-07-22, "that's a timer not a stopwatch").
 @MainActor
 final class StopwatchController: ObservableObject {
     @Published var elapsed = 0
+    /// Visible somewhere: running, or paused with its reading held.
     @Published var isActive = false
+    @Published var isRunning = false
     private var timer: Timer?
 
+    /// Fresh start from idle; resume from a pause.
     func start() {
-        elapsed = 0
+        if !isActive { elapsed = 0 }
         isActive = true
+        isRunning = true
         timer?.invalidate()
         timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.elapsed += 1 }
         }
     }
 
-    /// Stop and hand back the reading.
+    /// Freeze and hand back the reading; the reading stays on screen.
     @discardableResult
-    func stop() -> String {
+    func pause() -> String {
+        timer?.invalidate()
+        timer = nil
+        isRunning = false
+        return display
+    }
+
+    func reset() {
         timer?.invalidate()
         timer = nil
         isActive = false
-        let reading = display
+        isRunning = false
         elapsed = 0
-        return reading
     }
 
     var display: String {

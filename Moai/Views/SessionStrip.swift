@@ -35,7 +35,11 @@ struct SessionStrip: View {
             Text(title)
                 .font(Theme.Fonts.bodyEmphasisMono)
                 .foregroundStyle(Theme.textPrimary)
-                .opacity(kind == .focus && focus.isPaused ? 0.5 : 1)
+                .opacity(
+                    (kind == .focus && focus.isPaused)
+                        || (kind == .stopwatch && !stopwatch.isRunning)
+                        ? 0.5 : 1
+                )
             if kind == .focus {
                 Text("cycle \(focus.cycle)")
                     .font(Theme.Fonts.caption)
@@ -51,11 +55,20 @@ struct SessionStrip: View {
                     focus.togglePause()
                 }
             }
+            if kind == .stopwatch {
+                HoverGlyphButton(
+                    symbol: stopwatch.isRunning ? "pause.fill" : "play.fill",
+                    scale: .xs,
+                    tint: Theme.textSecondary
+                ) {
+                    if stopwatch.isRunning { stopwatch.pause() } else { stopwatch.start() }
+                }
+            }
             CloseButton {
                 switch kind {
                 case .focus: focus.stop()
                 case .timer: timer.stop()
-                case .stopwatch: stopwatch.stop()
+                case .stopwatch: stopwatch.reset()
                 }
             }
         }

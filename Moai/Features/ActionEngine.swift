@@ -87,17 +87,30 @@ final class ActionEngine {
             model.ambience.stop()
             return "Quiet."
         }
-        if ["stop stopwatch", "stop the stopwatch", "stopwatch stop"].contains(lower) {
+        if ["stop stopwatch", "stop the stopwatch", "stopwatch stop",
+            "pause stopwatch", "pause the stopwatch"].contains(lower) {
             guard model.stopwatch.isActive else { return "No stopwatch running." }
-            return "Stopped at \(model.stopwatch.stop())."
+            guard model.stopwatch.isRunning else {
+                return "Holding at \(model.stopwatch.display). Say stopwatch to roll on, reset stopwatch to clear."
+            }
+            return "Stopped at \(model.stopwatch.pause()). It holds; say stopwatch to roll on, reset stopwatch to clear."
+        }
+        if ["reset stopwatch", "reset the stopwatch", "clear stopwatch",
+            "clear the stopwatch", "stopwatch reset"].contains(lower) {
+            guard model.stopwatch.isActive else { return "Nothing on the watch." }
+            model.stopwatch.reset()
+            return "Cleared."
         }
         if ["stopwatch", "start stopwatch", "start the stopwatch",
-            "start a stopwatch"].contains(lower) {
-            if model.stopwatch.isActive {
-                return "Running, \(model.stopwatch.display). Say stop stopwatch when done."
+            "start a stopwatch", "resume stopwatch"].contains(lower) {
+            if model.stopwatch.isRunning {
+                return "Running, \(model.stopwatch.display). Say stop stopwatch to hold it."
             }
+            let resuming = model.stopwatch.isActive
             model.stopwatch.start()
-            return "Stopwatch running. Say stop stopwatch when done."
+            return resuming
+                ? "Rolling again from \(model.stopwatch.display)."
+                : "Stopwatch running. Say stop stopwatch to hold it."
         }
 
         // Reminders you already have: list them, or tick one off. Run

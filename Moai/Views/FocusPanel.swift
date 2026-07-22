@@ -224,7 +224,7 @@ struct FocusPanel: View {
         .buttonStyle(PressableStyle())
     }
 
-    // MARK: Stopwatch running
+    // MARK: Stopwatch running or holding
 
     private var stopwatchCard: some View {
         VStack(alignment: .leading, spacing: Theme.Space.xl) {
@@ -239,13 +239,23 @@ struct FocusPanel: View {
                 }
                 VStack(alignment: .leading, spacing: 3) {
                     SectionHeader(title: "Stopwatch", tint: accent)
+                    // A held reading stays on screen at half voice;
+                    // stop is not the end, that is the whole point.
                     Text(stopwatch.display)
                         .font(Theme.Fonts.display)
                         .foregroundStyle(Theme.textPrimary)
+                        .opacity(stopwatch.isRunning ? 1 : 0.55)
                 }
                 Spacer()
+                HoverGlyphButton(
+                    symbol: stopwatch.isRunning ? "pause.fill" : "play.fill",
+                    scale: .s,
+                    tint: Theme.textSecondary
+                ) {
+                    if stopwatch.isRunning { stopwatch.pause() } else { stopwatch.start() }
+                }
                 CloseButton(scale: .s) {
-                    stopwatch.stop()
+                    stopwatch.reset()
                 }
             }
             Spacer(minLength: 0)

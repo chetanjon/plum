@@ -693,6 +693,7 @@ struct NotchRootView: View {
             Image(systemName: "stopwatch")
                 .font(Theme.Fonts.icon(.xs))
                 .foregroundStyle(accent)
+                .opacity(stopwatch.isRunning ? 1 : 0.5)
         }
     }
 

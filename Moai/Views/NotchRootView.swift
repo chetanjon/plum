@@ -217,16 +217,42 @@ struct NotchRootView: View {
     /// moment of expansion made the blur mount mid-bloom and the
     /// shape lose its morph, which read as a glitch. The blur is
     /// always present in glass mode and only opacity moves.
+    /// The glass itself: real Liquid Glass where the OS has it, the
+    /// old blur-and-smoke underneath older systems. The branch is
+    /// fixed at launch; only opacities ever move with state (the
+    /// R74 law: never swap the shell's identity mid-bloom).
+    @ViewBuilder
+    private var glassFill: some View {
+        if #available(macOS 26.0, *) {
+            Color.clear
+                .glassEffect(.regular.tint(Color.black.opacity(0.30)), in: islandShape)
+        } else {
+            ZStack {
+                VisualEffectBlur()
+                    .clipShape(islandShape)
+                islandShape
+                    .fill(Color.black.opacity(0.45))
+            }
+        }
+    }
+
+    /// How much ink still lies over the open glass. Liquid Glass
+    /// carries its own legibility tint, so almost none; the old
+    /// material needs more smoke.
+    private var openSmoke: Double {
+        if #available(macOS 26.0, *) { return 0.10 }
+        return 0.30
+    }
+
     private var islandBase: some View {
         ZStack {
             if islandMaterial == "glass" {
-                VisualEffectBlur()
-                    .clipShape(islandShape)
+                glassFill
                     .opacity(model.state == .collapsed ? 0 : 1)
             }
             islandShape
                 .fill(Color.black)
-                .opacity(islandMaterial == "glass" && model.state != .collapsed ? 0.52 : 1)
+                .opacity(islandMaterial == "glass" && model.state != .collapsed ? openSmoke : 1)
         }
     }
 

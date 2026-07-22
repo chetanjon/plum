@@ -200,7 +200,7 @@ struct SettingsPane: View {
                             ("Ink", "ink"), ("Glass", "glass"),
                         ])
                     }
-                    Text("Glass opens the island as smoked glass. Closed, it stays ink and melts into the notch.")
+                    Text("Glass opens the island as liquid glass. Closed, it stays ink and melts into the notch.")
                         .font(Theme.Fonts.caption)
                         .foregroundStyle(Theme.textHint)
                     divider

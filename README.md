@@ -32,7 +32,7 @@ First open: macOS will ask once. System Settings, Privacy and Security, Open Any
 
 **Music**
 - Whatever plays, anywhere: Spotify, Apple Music, YouTube in a browser, any app the system hears. While playing, the closed island stays bare and a breathing album-color rim carries the signal; expand for artwork, transport, and scrubbing.
-- The opened island comes in two materials, ink or smoked glass, in Settings under Life. Closed, it is always ink; melting into the notch is its job.
+- The opened island comes in two materials, ink or liquid glass, in Settings under Life. Closed, it is always ink; melting into the notch is its job.
 
 **Clips** (clipboard history)
 - Last 30 copies. Password-manager copies (concealed/transient) never stored.

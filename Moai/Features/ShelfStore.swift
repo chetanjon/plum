@@ -44,6 +44,30 @@ final class ShelfStore: ObservableObject {
         return true
     }
 
+    /// A clip promoted off the passing stream: the content is copied
+    /// into the shelf's own folder, so the keep outlives the ring.
+    @discardableResult
+    func keep(text: String) -> Bool {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return false }
+        let name = "Snippet-\(Self.uniqueSuffix()).txt"
+        let url = Self.droppedDirectory().appendingPathComponent(name)
+        guard (try? trimmed.write(to: url, atomically: true, encoding: .utf8)) != nil
+        else { return false }
+        add(url)
+        return true
+    }
+
+    @discardableResult
+    func keep(imageAt source: URL) -> Bool {
+        let name = "Screenshot-\(Self.uniqueSuffix()).png"
+        let url = Self.droppedDirectory().appendingPathComponent(name)
+        guard (try? FileManager.default.copyItem(at: source, to: url)) != nil
+        else { return false }
+        add(url)
+        return true
+    }
+
     private static func droppedDirectory() -> URL {
         let dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("Moai/Dropped", isDirectory: true)

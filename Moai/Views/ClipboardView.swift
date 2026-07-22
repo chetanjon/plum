@@ -11,7 +11,7 @@ struct ClipboardView: View {
 
     var body: some View {
         if clipboard.clips.isEmpty {
-            EmptyPaneHint(message: "Copy text or a screenshot and it lands here.")
+            EmptyPaneHint(message: "Whatever you copy lands here on its own, the last 30. Pin or shelf what should stay.")
         } else {
             HuggingList {
                 ForEach(clipboard.clips) { clip in
@@ -60,6 +60,19 @@ private struct ClipRow: View {
                 IconActionButton(symbol: "doc.on.doc") {
                     clipboard.copyBack(clip)
                 }
+                // The bridge between the two surfaces: clips are the
+                // passing stream, the shelf is the keep, and this
+                // moves one across.
+                IconActionButton(symbol: "tray.and.arrow.down", tint: Theme.textSecondary) {
+                    let kept: Bool
+                    if let source = clip.imageURL {
+                        kept = model.shelf.keep(imageAt: source)
+                    } else {
+                        kept = model.shelf.keep(text: clip.text ?? "")
+                    }
+                    if kept { model.flashGlance("Kept on the Shelf") }
+                }
+                .help("Keep on the Shelf")
                 // Text can go to the answer surface; an image can't.
                 if let text = clip.text {
                     IconActionButton(symbol: "sparkles", tint: accent) {

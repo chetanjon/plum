@@ -44,7 +44,7 @@ struct Switcher: View {
         case .ask: return "Answer"
         case .links: return "Shortcuts"
         case .clipboard: return "Clipboard"
-        case .shelf: return "Files"
+        case .shelf: return "Shelf"
         case .notes: return "Notes"
         case .focus: return "Focus"
         case .chat: return "Chat"

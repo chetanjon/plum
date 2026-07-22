@@ -103,7 +103,7 @@ struct SettingsPane: View {
                     divider
                     toggleRow("Clipboard", $toolClips)
                     divider
-                    toggleRow("Files", $toolShelf)
+                    toggleRow("Shelf", $toolShelf)
                     divider
                     toggleRow("Notes", $toolNotes)
                     divider

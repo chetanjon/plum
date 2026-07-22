@@ -12,7 +12,7 @@ struct ShelfView: View {
 
     var body: some View {
         if shelf.items.isEmpty {
-            EmptyPaneHint(message: "Drop files or links on the notch to stash them here.")
+            EmptyPaneHint(message: "Drop files or links on the notch and they stay here until you take them back.")
         } else {
             HuggingList {
                 ForEach(shelf.items) { item in

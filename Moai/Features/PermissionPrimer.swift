@@ -1,3 +1,4 @@
+import AppKit
 import AVFoundation
 import EventKit
 import Speech
@@ -16,5 +17,24 @@ enum PermissionPrimer {
         let store = EKEventStore()
         _ = try? await store.requestFullAccessToReminders()
         _ = try? await store.requestFullAccessToEvents()
+        primeRunningPlayers()
+    }
+
+    /// The player-control dialog can only be raised for an app that
+    /// is running (Apple Events cannot ask about a program that is
+    /// not there to answer), so this fronts the ask for whichever
+    /// players already are. Everyone else meets the dialog the first
+    /// time they play something, which at least is in context; found
+    /// unanswered for a whole day on 2026-07-21.
+    static func primeRunningPlayers() {
+        for bundleID in ["com.spotify.client", "com.apple.Music"] {
+            guard !NSRunningApplication
+                .runningApplications(withBundleIdentifier: bundleID)
+                .isEmpty else { continue }
+            let target = NSAppleEventDescriptor(bundleIdentifier: bundleID)
+            _ = AEDeterminePermissionToAutomateTarget(
+                target.aeDesc, typeWildCard, typeWildCard, true
+            )
+        }
     }
 }

@@ -31,7 +31,8 @@ First open: macOS will ask once. System Settings, Privacy and Security, Open Any
 - Hold to talk or tap the mic; recognition is Apple standard dictation, on-device when the model is warm, Apple dictation service otherwise, the same path Notes and Messages use. Your music ducks while you speak.
 
 **Music**
-- Spotify + Apple Music. Waveform wing when playing, transport on expand. Only talks to players already running.
+- Whatever plays, anywhere: Spotify, Apple Music, YouTube in a browser, any app the system hears. While playing, the closed island stays bare and a breathing album-color rim carries the signal; expand for artwork, transport, and scrubbing.
+- The opened island comes in two materials, ink or smoked glass, in Settings under Life. Closed, it is always ink; melting into the notch is its job.
 
 **Clips** (clipboard history)
 - Last 30 copies. Password-manager copies (concealed/transient) never stored.
@@ -50,7 +51,7 @@ First open: macOS will ask once. System Settings, Privacy and Security, Open Any
 
 ## Permission prompts, in order of appearance
 
-macOS will ask once each for: Microphone + Speech Recognition (first hold-to-talk), Reminders (first remind), Calendars (first schedule/agenda), Automation for Spotify/Music (first transport tap). All expected, approve them.
+macOS will ask once each for: Microphone + Speech Recognition (first hold-to-talk), Reminders (first remind), Calendars (first schedule/agenda), Automation for Spotify/Music (when music first plays; asked up front if your player is already open during the welcome tour). All expected, approve them.
 
 ## Run it (on your Mac)
 

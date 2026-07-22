@@ -146,7 +146,9 @@ final class MediaRemoteBridge: ObservableObject {
 
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/perl")
-        process.arguments = [script.path, framework.path, "stream", "--debounce=250"]
+        // 80ms batches the artwork bursts without making a track
+        // change feel like the island heard it second-hand.
+        process.arguments = [script.path, framework.path, "stream", "--debounce=80"]
 
         let out = Pipe()
         process.standardOutput = out

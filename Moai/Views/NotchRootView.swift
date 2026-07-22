@@ -57,16 +57,22 @@ struct NotchRootView: View {
         focus.isActive || timer.isActive || music.nowPlaying?.isPlaying == true
     }
 
+    /// Each wing earns exactly what its content needs: the ring and
+    /// countdown want 54, the waveform alone sits happily in 36.
+    private var leftWingNeed: CGFloat {
+        if focus.isActive || timer.isActive { return 54 }
+        if music.nowPlaying?.isPlaying == true { return 36 }
+        return 0
+    }
+
     private var statusWings: CGFloat {
         // Beside a physical notch the pill must widen symmetrically:
         // the camera sits at the screen's center, so each side gets
         // the larger wing's width or content slides under the notch.
-        // 54 per side is just enough for the waveform or the ring
-        // and clock; 88 read as the island eating the menu bar.
         if model.hasPhysicalNotch {
-            return 2 * max(hasLeftWing ? 54 : 0, notchSideNeed)
+            return 2 * max(leftWingNeed, notchSideNeed)
         }
-        return hasLeftWing ? 54 : 0
+        return leftWingNeed
     }
 
     /// Width the right-of-camera glance needs on notched displays.

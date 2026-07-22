@@ -233,31 +233,29 @@ final class MusicController: ObservableObject {
     private let lastAppKey = "moai.lastMusicApp"
 
     /// The app the quick-access chip would open right now: whatever is
-    /// running, else whatever played last, else whatever is installed.
+    /// running, else whatever this Mac was actually seen playing.
+    /// Mere installation is not evidence of use, so it names nothing;
+    /// the chip hides instead of guessing someone's player.
     var preferredApp: MusicApp? {
         if let app = activeApp() { return app }
         if let raw = UserDefaults.standard.string(forKey: lastAppKey),
            let app = MusicApp(rawValue: raw), isInstalled(app) {
             return app
         }
-        if isInstalled(.spotify) { return .spotify }
-        if isInstalled(.appleMusic) { return .appleMusic }
         return nil
     }
 
-    /// Open whatever is playing; idle, open the preferred player; with
-    /// neither installed, YouTube Music in the browser.
+    /// Open whatever is playing; idle, open the known player; with no
+    /// evidence at all, the system's own player is the one safe guess.
     func openMusicApp() {
         if case .system(let bundleID, _) = nowPlaying?.source,
            let app = NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).first {
             app.activate()
             return
         }
-        if let app = preferredApp,
-           let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: app.bundleID) {
+        let target = preferredApp ?? .appleMusic
+        if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: target.bundleID) {
             NSWorkspace.shared.openApplication(at: url, configuration: .init())
-        } else if let url = URL(string: "https://music.youtube.com") {
-            NSWorkspace.shared.open(url)
         }
     }
 
@@ -279,15 +277,25 @@ final class MusicController: ObservableObject {
 
     /// Trace of the last applyBridge decision, for `debug music`.
     private(set) var bridgeTrace = "never"
+    /// "bundleID|title" of the applied bridge state: an update naming
+    /// a different song must never wait out the optimistic-command
+    /// suppress window, that window exists for play-state flicker.
+    private var appliedIdentity = ""
 
     private func applyBridge(_ state: MediaRemoteBridge.State?) {
         guard bridge.adapterAvailable else { bridgeTrace = "gate:adapter"; return }
-        guard Date() >= suppressPollUntil else { bridgeTrace = "gate:suppress"; return }
         guard let state else {
+            guard Date() >= suppressPollUntil else { bridgeTrace = "gate:suppress"; return }
             bridgeTrace = "cleared"
             clearNowPlaying()
             return
         }
+        let identity = state.bundleIdentifier + "|" + state.title
+        guard identity != appliedIdentity || Date() >= suppressPollUntil else {
+            bridgeTrace = "gate:suppress"
+            return
+        }
+        appliedIdentity = identity
         bridgeTrace = "applied:\(state.bundleIdentifier)"
         let source = resolveSource(state.bundleIdentifier, parent: state.parentBundleIdentifier)
         let sameSource = nowPlaying?.source == source
@@ -350,18 +358,24 @@ final class MusicController: ObservableObject {
             artworkKey = key
             artwork = image
             updateAccent(from: image)
-        } else if let app = nowPlaying?.source.scriptable {
-            fetchScriptedArtwork(app: app, key: key, title: state.title, artist: state.artist)
-        } else {
-            artworkKey = key
-            artwork = nil
-            updateAccent(from: nil)
-            bridge.fetchArtworkSnapshot { [weak self] snapshotKey, data in
-                guard let self, self.artworkKey == key, self.artwork == nil,
-                      snapshotKey == key,
-                      let data, let image = NSImage(data: data) else { return }
+            return
+        }
+        // The diff named a new track but carried no art. The old
+        // cover holds the frame (no placeholder flash) while a
+        // snapshot races for the new one; the per-app script and the
+        // catalog stay behind it as the slow road.
+        artworkKey = key
+        let scriptable = nowPlaying?.source.scriptable
+        bridge.fetchArtworkSnapshot { [weak self] snapshotKey, data in
+            guard let self, self.artworkKey == key else { return }
+            if snapshotKey == key, let data, let image = NSImage(data: data) {
                 self.artwork = image
                 self.updateAccent(from: image)
+            } else if let app = scriptable {
+                self.fetchScriptedArtwork(app: app, key: key, title: state.title, artist: state.artist)
+            } else {
+                self.artwork = nil
+                self.updateAccent(from: nil)
             }
         }
     }
@@ -421,6 +435,7 @@ final class MusicController: ObservableObject {
         positionAnchor = nil
         artwork = nil
         artworkKey = nil
+        appliedIdentity = ""
         updateAccent(from: nil)
     }
 

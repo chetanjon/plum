@@ -23,6 +23,19 @@ struct MusicRow: View {
                 }
                 .buttonStyle(PressableStyle())
                 .help("Open \(playing.source.displayName)")
+                .background(
+                    // The album's own light spilling out from under
+                    // the cover: the row warms to whatever plays,
+                    // without ever drawing a box around itself.
+                    RadialGradient(
+                        colors: [accent.opacity(playing.isPlaying ? 0.22 : 0.10), .clear],
+                        center: .center,
+                        startRadius: 4,
+                        endRadius: 190
+                    )
+                    .frame(width: 380, height: 150)
+                    .allowsHitTesting(false)
+                )
 
                 VStack(alignment: .leading, spacing: Theme.Space.snug) {
                     HStack(spacing: Theme.Space.s) {
@@ -50,7 +63,7 @@ struct MusicRow: View {
                         HStack(spacing: Theme.Space.s) {
                             Text(Self.clock(scrubPosition ?? livePosition))
                                 .font(Theme.Fonts.microMono)
-                                .foregroundStyle(Theme.textGhost)
+                                .foregroundStyle(Theme.textSecondary)
                             Slider(
                                 value: Binding(
                                     get: { scrubPosition ?? livePosition },
@@ -161,7 +174,7 @@ struct MusicRow: View {
                 }
             }
         }
-        .frame(width: 46, height: 46)
+        .frame(width: 54, height: 54)
         .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.artwork, style: .continuous))
         // Top-lit sheen: the art reads as a physical, lit surface.
         .overlay(

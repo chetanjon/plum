@@ -168,7 +168,10 @@ struct ExpandedView: View {
             if showMedia, music.nowPlaying != nil {
                 MusicRow(music: music)
             } else {
-                if showMedia {
+                // The chip only appears once a player has earned it:
+                // running now, or seen playing before. Guessing a
+                // brand for a fresh Mac presumed too much.
+                if showMedia, music.preferredApp != nil {
                     MusicLaunchChip(music: music)
                 }
                 Spacer(minLength: 0)
@@ -300,7 +303,8 @@ private struct MusicLaunchChip: View {
     @State private var hovered = false
 
     private var label: String {
-        music.preferredApp.map { "Open \($0.rawValue)" } ?? "Open YouTube Music"
+        // Only rendered when a preferred app exists (see topRow).
+        music.preferredApp.map { "Open \($0.rawValue)" } ?? "Open music"
     }
 
     var body: some View {

@@ -13,11 +13,9 @@ struct ClipboardView: View {
         if clipboard.clips.isEmpty {
             EmptyPaneHint(message: "Copy text or a screenshot and it lands here.")
         } else {
-            ScrollView {
-                VStack(spacing: Theme.Space.s) {
-                    ForEach(clipboard.clips) { clip in
-                        ClipRow(clip: clip, model: model, clipboard: clipboard)
-                    }
+            HuggingList {
+                ForEach(clipboard.clips) { clip in
+                    ClipRow(clip: clip, model: model, clipboard: clipboard)
                 }
             }
         }

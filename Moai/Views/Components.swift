@@ -355,6 +355,26 @@ struct CloseButton: View {
     }
 }
 
+/// A list that hugs a few rows and scrolls many, so a nearly empty
+/// panel never wears a fixed-height void (one lonely note sat above
+/// 200 points of black, and the island read as stuck).
+struct HuggingList<Content: View>: View {
+    @ViewBuilder var content: () -> Content
+
+    var body: some View {
+        ViewThatFits(in: .vertical) {
+            VStack(alignment: .leading, spacing: Theme.Space.s) {
+                content()
+            }
+            ScrollView {
+                VStack(alignment: .leading, spacing: Theme.Space.s) {
+                    content()
+                }
+            }
+        }
+    }
+}
+
 /// Small icon-only row action (copy, delete, share...).
 struct IconActionButton: View {
     let symbol: String

@@ -401,8 +401,11 @@ final class NotchViewModel: ObservableObject {
             guard let self else { return }
             // Chat is a deliberate surface: mid-conversation with
             // Claude, a grazing cursor must not close the island.
+            // A half-typed draft, though, survives collapse (model
+            // state, waiting on the next open) and must never pin
+            // the island to the screen; it did, and it read as stuck.
             guard self.state == .expanded, !self.isHovering,
-                  !self.isWorking, self.draftPrompt.isEmpty,
+                  !self.isWorking,
                   self.pendingContext == nil, self.pane == .none,
                   self.tab != .chat else { return }
             self.collapse()
@@ -529,7 +532,7 @@ final class NotchViewModel: ObservableObject {
                 return
             }
             guard self.state == .expanded, !self.isHovering,
-                  self.draftPrompt.isEmpty, self.pendingContext == nil,
+                  self.pendingContext == nil,
                   self.pane == .none, self.tab != .chat else { return }
             self.collapse()
         }

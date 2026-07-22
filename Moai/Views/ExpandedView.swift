@@ -113,6 +113,17 @@ struct ExpandedView: View {
                         guard size.height > 0 else { return }
                         model.expandedSize = size
                     }
+                    // A tab switch can slip past the size observer and
+                    // leave the shell wearing the previous tab's
+                    // height (seen live: a void under the notes list);
+                    // re-anchor after the new panel settles.
+                    .onChange(of: model.tab) { _, _ in
+                        DispatchQueue.main.async {
+                            let size = geo.size
+                            guard size.height > 0 else { return }
+                            model.expandedSize = size
+                        }
+                    }
             }
         )
         // A drag over the island covers the body with one large,
@@ -184,11 +195,14 @@ struct ExpandedView: View {
         case .links:
             ShortcutsView(model: model).frame(height: Theme.Panel.list)
         case .clipboard:
-            ClipboardView(model: model).frame(height: Theme.Panel.list)
+            ClipboardView(model: model)
+                .frame(maxHeight: Theme.Panel.list, alignment: .top)
         case .shelf:
-            ShelfView(model: model).frame(height: Theme.Panel.list)
+            ShelfView(model: model)
+                .frame(maxHeight: Theme.Panel.list, alignment: .top)
         case .notes:
-            NotesView(model: model).frame(height: Theme.Panel.list)
+            NotesView(model: model)
+                .frame(maxHeight: Theme.Panel.list, alignment: .top)
         case .focus:
             FocusPanel(focus: focus, timer: timer, stats: model.focusStats)
                 .frame(height: Theme.Panel.focus)

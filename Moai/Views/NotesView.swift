@@ -21,11 +21,9 @@ struct NotesView: View {
             if notes.notes.isEmpty {
                 EmptyPaneHint(message: "Jot a thought here, or say \"note: something\".")
             } else {
-                ScrollView {
-                    VStack(spacing: Theme.Space.s) {
-                        ForEach(notes.notes) { note in
-                            NoteRow(note: note, model: model, notes: notes)
-                        }
+                HuggingList {
+                    ForEach(notes.notes) { note in
+                        NoteRow(note: note, model: model, notes: notes)
                     }
                 }
             }

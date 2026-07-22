@@ -14,11 +14,9 @@ struct ShelfView: View {
         if shelf.items.isEmpty {
             EmptyPaneHint(message: "Drop files or links on the notch to stash them here.")
         } else {
-            ScrollView {
-                VStack(spacing: Theme.Space.s) {
-                    ForEach(shelf.items) { item in
-                        ShelfRow(item: item, model: model, shelf: shelf)
-                    }
+            HuggingList {
+                ForEach(shelf.items) { item in
+                    ShelfRow(item: item, model: model, shelf: shelf)
                 }
             }
         }

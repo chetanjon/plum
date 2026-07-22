@@ -31,6 +31,7 @@ First open: macOS will ask once. System Settings, Privacy and Security, Open Any
 - `play`, `pause`, `skip`, `previous` control music.
 - `text amma: on my way` reads the message back; only the word `send` fires it, as an iMessage through Messages. Nothing ever sends unconfirmed, and any other command drops the staged text.
 - Dates parsed deterministically with NSDataDetector. Verbs by prefix. Zero network, zero key, instant.
+- `what's new` reads the latest release notes right in the island.
 - Anything beyond the verbs goes to the Mac's own on-device model, keyless. Long conversations belong to the Chat tab and your own subscription.
 
 **Voice**

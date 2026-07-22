@@ -74,6 +74,15 @@ final class ActionEngine {
             return model.voiceLogRendered
         }
 
+        // The island's own changelog, read from the latest release.
+        if ["what's new", "whats new", "what is new", "changelog",
+            "what changed", "release notes"].contains(lower) {
+            model.isWorking = true
+            let notes = await model.updates.latestNotes()
+            model.isWorking = false
+            return notes ?? "Couldn't reach the release notes. Check the network, then ask again."
+        }
+
         // Stops
         if ["stop focus", "end focus"].contains(lower) {
             model.focus.stop()
@@ -588,6 +597,7 @@ final class ActionEngine {
     left half · right half · fill · center
     note: an idea · notes · find parcel
     screenshot · screen record · lock screen · dark mode · voice log
+    what's new reads the latest release notes
     Anything else is a question; the model answers it.
     """
 

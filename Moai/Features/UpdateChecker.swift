@@ -63,6 +63,32 @@ final class UpdateChecker: ObservableObject {
         }
     }
 
+    /// The latest release's story, for the "what's new" verb: title
+    /// and bullet notes, fetched on ask. Same endpoint as the daily
+    /// check, so the network learns nothing it didn't already hear.
+    func latestNotes() async -> String? {
+        var request = URLRequest(url: releasesAPI)
+        request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
+        guard let (data, _) = try? await URLSession.shared.data(for: request),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let tag = json["tag_name"] as? String
+        else { return nil }
+        let remote = tag.hasPrefix("v") ? String(tag.dropFirst()) : tag
+        let title = (json["name"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? remote
+        let current = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0"
+        let header = Self.isNewer(remote, than: current)
+            ? "\(title) · you run \(current), the door is in Settings"
+            : "\(title) · you're current"
+        let bullets = (json["body"] as? String ?? "")
+            .replacingOccurrences(of: "\r", with: "")
+            .split(separator: "\n")
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { $0.hasPrefix("- ") }
+            .map { "· " + $0.dropFirst(2) }
+        guard !bullets.isEmpty else { return header }
+        return ([header] + bullets.prefix(6)).joined(separator: "\n")
+    }
+
     static func isNewer(_ a: String, than b: String) -> Bool {
         let left = a.split(separator: ".").map { Int($0) ?? 0 }
         let right = b.split(separator: ".").map { Int($0) ?? 0 }

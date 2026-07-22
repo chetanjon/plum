@@ -87,8 +87,12 @@ final class ActionEngine {
             model.ambience.stop()
             return "Quiet."
         }
+        // Dictation and plain typing both write "stop watch" as two
+        // words; join them so the watch's verbs never wander to the
+        // model as strangers.
+        let watch = lower.replacingOccurrences(of: "stop watch", with: "stopwatch")
         if ["stop stopwatch", "stop the stopwatch", "stopwatch stop",
-            "pause stopwatch", "pause the stopwatch"].contains(lower) {
+            "pause stopwatch", "pause the stopwatch"].contains(watch) {
             guard model.stopwatch.isActive else { return "No stopwatch running." }
             guard model.stopwatch.isRunning else {
                 return "Holding at \(model.stopwatch.display). Say stopwatch to roll on, reset stopwatch to clear."
@@ -96,13 +100,13 @@ final class ActionEngine {
             return "Stopped at \(model.stopwatch.pause()). It holds; say stopwatch to roll on, reset stopwatch to clear."
         }
         if ["reset stopwatch", "reset the stopwatch", "clear stopwatch",
-            "clear the stopwatch", "stopwatch reset"].contains(lower) {
+            "clear the stopwatch", "stopwatch reset"].contains(watch) {
             guard model.stopwatch.isActive else { return "Nothing on the watch." }
             model.stopwatch.reset()
             return "Cleared."
         }
         if ["stopwatch", "start stopwatch", "start the stopwatch",
-            "start a stopwatch", "resume stopwatch"].contains(lower) {
+            "start a stopwatch", "resume stopwatch"].contains(watch) {
             if model.stopwatch.isRunning {
                 return "Running, \(model.stopwatch.display). Say stop stopwatch to hold it."
             }

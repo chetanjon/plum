@@ -42,9 +42,18 @@ struct FocusPanel: View {
                 ForEach([5, 10, 20], id: \.self) { minutes in
                     timerChip(minutes)
                 }
-                stopwatchChip
             }
             .padding(.top, Theme.Space.xs)
+            // Its own line, its own words: living among the timer
+            // chips it read as a fourth preset, and a tap one slot
+            // over counted backwards (user, 2026-07-22, "you gave a
+            // timer"). Down and up are different instruments.
+            HStack(spacing: Theme.Space.m) {
+                Text("Count up")
+                    .font(Theme.Fonts.caption)
+                    .foregroundStyle(Theme.textTertiary)
+                stopwatchChip
+            }
             goalRow
             if !stats.days.isEmpty {
                 statsBlock

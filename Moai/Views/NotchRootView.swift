@@ -210,17 +210,21 @@ struct NotchRootView: View {
     /// glass read as clutter, user call 2026-07-20). Glass returned
     /// 2026-07-21 as an opt-in, smoked and expanded-only: the closed
     /// pill always stays ink so it melts into the hardware.
-    @ViewBuilder
+    ///
+    /// One stable hierarchy across states: swapping views at the
+    /// moment of expansion made the blur mount mid-bloom and the
+    /// shape lose its morph, which read as a glitch. The blur is
+    /// always present in glass mode and only opacity moves.
     private var islandBase: some View {
-        if islandMaterial == "glass", model.state != .collapsed {
-            ZStack {
+        ZStack {
+            if islandMaterial == "glass" {
                 VisualEffectBlur()
                     .clipShape(islandShape)
-                islandShape
-                    .fill(Color.black.opacity(0.52))
+                    .opacity(model.state == .collapsed ? 0 : 1)
             }
-        } else {
-            islandShape.fill(Color.black)
+            islandShape
+                .fill(Color.black)
+                .opacity(islandMaterial == "glass" && model.state != .collapsed ? 0.52 : 1)
         }
     }
 

@@ -78,32 +78,43 @@ First music control triggers a macOS Automation permission prompt (Moai → Spot
 
 Open this folder in Claude Code and paste:
 
-> Generate the Xcode project with xcodegen, build the Moai scheme, and fix any compile errors you hit, then run it. Do not change the design, architecture, feature scope, or the Design law section of the README. Test each verb from the README v1 feature list and fix what fails.
+> Generate the Xcode project with xcodegen, build the Moai scheme, and fix any compile errors you hit, then run it. Do not change the design, architecture, feature scope, or the Design law section of the README. Test each verb from the README v1 feature list and fix what fails. For the texting verb, stage and drop only: never say send, and never send a message to anyone.
 
 ## Architecture (30 seconds)
 
 - `NotchWindowController`: borderless non-activating NSPanel at status-bar level, measured against the real notch via `NSScreen.safeAreaInsets` + auxiliary top areas, re-measured through every display change. Global click monitor collapses the island.
 - `NotchViewModel`: island state, active tab, and the context handoff (`askAbout`) that lets clips and files flow into the Do surface.
-- `Features/`: MediaRemoteBridge + MusicController (system-wide now-playing via the vendored adapter, AppleScript enrichment for Spotify/Music extras), ClipboardStore (pasteboard polling, 1s, text and images), ShelfStore (drops, AirDrop, PDF/text extraction via PDFKit), NotesStore, ShortcutStore, VoiceController, FocusController.
+- `Features/`: MediaRemoteBridge + MusicController (system-wide now-playing via the vendored adapter, AppleScript enrichment for Spotify/Music extras), EventKitService (reminders and calendar, deterministic date parsing), ClipboardStore (pasteboard polling, 1s, text and images), ShelfStore (drops, AirDrop, PDF/text extraction via PDFKit), ActivityStore + ActivityServer (the localhost:4242 status door), MessageCourier (stage, read back, send only on "send"), NotesStore, ShortcutStore, VoiceController, FocusController.
 - `Views/`: NotchRootView (the morphing shape, ink and glass materials, drop target, wings), ExpandedView (tabs + Do), IslandRows (the media row), SettingsPane.
 - `AIService`: Apple's on-device model for quick answers and verb translation, keyless.
+
+## Design law
+
+The rules every round is built under, in the order they were paid for:
+
+- One way per job. When two surfaces do the same thing, the worse one gets cut.
+- No fixed-height voids. The island hugs what it shows.
+- Nothing pins the island open. Drafts and staged messages survive collapse instead.
+- Closed, the island is ink and melts into the hardware. Materials are for the opened shell.
+- Nothing outward-facing fires unconfirmed. A text reads back before it sends.
+- Copy tells the truth the moment architecture changes.
 
 ## Known trade-offs
 
 - Now-playing rides a vendored MediaRemote adapter (BSD-3) loaded through `/usr/bin/perl`; if a future macOS closes that door, the app falls back to AppleScript polling for Spotify and Apple Music only.
 - No conversation memory in ask, each question is fresh. Long conversations belong to the Chat tab.
 - No global hotkey, by choice: every summon key collided with something. Hover, the mic, or the typed bar open the island.
+- Texting sends over iMessage only. A number that lives on the green side isn't reachable yet; SMS relay is untested ground and stays out until it can be tested honestly.
 - Unsigned; the first open needs one Open Anyway.
 
 ## Roadmap
 
-- **v1.5:** Messages sending. (Menu bar countdown was pruned: the island already carries the countdown on every display, and two surfaces for one number is the kind of thing this app exists to refuse.)
-- **v2:** meeting brief before your next call, screen context.
+- **v2:** meeting brief before your next call, screen context. (Messages sending shipped in 1.0.66; menu bar countdown was pruned, the island already carries the countdown on every display, and two surfaces for one number is the kind of thing this app exists to refuse.)
 - Distribution: Homebrew cask; a notarized build if enrollment ever earns its $99. The landing page is [live](https://chetanjon.github.io/moai/).
 
 ## Audio attributions
 
-- Rain ambience: derived from ["Calm rain.wav"](https://commons.wikimedia.org/wiki/File:Calm_rain.wav) (Wikimedia Commons, CC BY-SA 4.0) — trimmed, normalized, edge-faded.
-- Cafe ambience: derived from ["Cafe ambiance.ogg"](https://commons.wikimedia.org/wiki/File:Cafe_ambiance.ogg) (Wikimedia Commons, CC0) — low-pass filtered and level-reduced for a calmer room.
-- Fire ambience: derived from ["Campfire sound ambience.ogg"](https://commons.wikimedia.org/wiki/File:Campfire_sound_ambience.ogg) by Glaneur de sons (Wikimedia Commons, CC BY 3.0) — normalized, softened, edge-faded.
+- Rain ambience: derived from ["Calm rain.wav"](https://commons.wikimedia.org/wiki/File:Calm_rain.wav) (Wikimedia Commons, CC BY-SA 4.0), trimmed, normalized, edge-faded.
+- Cafe ambience: derived from ["Cafe ambiance.ogg"](https://commons.wikimedia.org/wiki/File:Cafe_ambiance.ogg) (Wikimedia Commons, CC0), low-pass filtered and level-reduced for a calmer room.
+- Fire ambience: derived from ["Campfire sound ambience.ogg"](https://commons.wikimedia.org/wiki/File:Campfire_sound_ambience.ogg) by Glaneur de sons (Wikimedia Commons, CC BY 3.0), normalized, softened, edge-faded.
 - Brown/white/pink noise are synthesized in real time.

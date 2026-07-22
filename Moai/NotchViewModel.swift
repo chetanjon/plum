@@ -283,6 +283,7 @@ final class NotchViewModel: ObservableObject {
                     }
                     bits.append("trace=\(self.music.bridgeTrace)")
                     bits.append("snap=\(self.music.bridge.snapshotTrace)")
+                    bits.append("enrich=\(self.music.enrichCount)")
                     UserDefaults.standard.set(bits.joined(separator: " | "), forKey: "musicDebug")
                     return
                 }
@@ -415,6 +416,7 @@ final class NotchViewModel: ObservableObject {
     func expand(takeKey: Bool = true) {
         guard state != .expanded else { return }
         state = .expanded
+        music.expandedVisible = true
         if takeKey { onExpandChange?(true) }
     }
 
@@ -424,6 +426,7 @@ final class NotchViewModel: ObservableObject {
         // The island always reopens small and clean.
         pane = .none
         tab = .today
+        music.expandedVisible = false
         onExpandChange?(false)
     }
 

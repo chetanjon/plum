@@ -84,6 +84,19 @@ final class MusicController: ObservableObject {
     /// stale; skip publishing them for a beat instead of flickering.
     private var suppressPollUntil = Date.distantPast
 
+    /// Whether the expanded island is on screen. Volume and shuffle
+    /// are only visible there, so the per-second AppleScript poll
+    /// idles down to a slow heartbeat while the island is closed;
+    /// the bridge still delivers track changes instantly either way.
+    var expandedVisible = false {
+        didSet {
+            guard expandedVisible, !oldValue else { return }
+            // Open with fresh numbers, not five-second-old ones.
+            refreshTick(force: true)
+        }
+    }
+    private var tick = 0
+
     /// One serial background lane for every AppleScript. Running them
     /// on the main thread stalls the UI for 50-200ms per call.
     private static let scriptQueue = DispatchQueue(label: "moai.music.script", qos: .userInitiated)
@@ -277,6 +290,8 @@ final class MusicController: ObservableObject {
 
     /// Trace of the last applyBridge decision, for `debug music`.
     private(set) var bridgeTrace = "never"
+    /// AppleScript enrichments actually run, for `debug music`.
+    private(set) var enrichCount = 0
     /// "bundleID|title" of the applied bridge state: an update naming
     /// a different song must never wait out the optimistic-command
     /// suppress window, that window exists for play-state flicker.
@@ -395,7 +410,13 @@ final class MusicController: ObservableObject {
     /// the system volume for everything else.
     private func enrichmentPoll(force: Bool = false) {
         guard let current = nowPlaying else { return }
+        tick += 1
         if let app = current.source.scriptable {
+            // Nobody can see these numbers while the island is
+            // closed; one AppleScript every five seconds keeps them
+            // roughly honest without burning a script per second.
+            guard force || expandedVisible || tick % 5 == 0 else { return }
+            enrichCount += 1
             let shuffleExpr = app == .spotify ? "shuffling" : "shuffle enabled"
             let source = """
             tell application "\(app.rawValue)"

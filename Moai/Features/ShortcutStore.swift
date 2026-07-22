@@ -195,14 +195,34 @@ final class ShortcutStore: ObservableObject {
     }
 
     private func fetchFavicon(host: String) {
-        guard !faviconFetches.contains(host),
-              let url = URL(string: "https://\(host)/favicon.ico") else { return }
+        guard !faviconFetches.contains(host) else { return }
         faviconFetches.insert(host)
+        // Disk first: a favicon fetched once is a favicon kept, so
+        // relaunches show faces instantly and ping nobody.
+        if let data = try? Data(contentsOf: Self.faviconFile(for: host)),
+           let image = NSImage(data: data), image.isValid {
+            favicons[host] = image
+            return
+        }
+        guard let url = URL(string: "https://\(host)/favicon.ico") else { return }
         Task { [weak self] in
             guard let data = try? await URLSession.shared.data(from: url).0,
                   let image = NSImage(data: data), image.isValid else { return }
+            try? FileManager.default.createDirectory(
+                at: Self.faviconDirectory, withIntermediateDirectories: true
+            )
+            try? data.write(to: Self.faviconFile(for: host))
             await MainActor.run { self?.favicons[host] = image }
         }
+    }
+
+    private static var faviconDirectory: URL {
+        FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("moai-favicons", isDirectory: true)
+    }
+
+    private static func faviconFile(for host: String) -> URL {
+        faviconDirectory.appendingPathComponent(host + ".ico")
     }
 
     @discardableResult

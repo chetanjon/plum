@@ -76,25 +76,24 @@ Open this folder in Claude Code and paste:
 
 ## Architecture (30 seconds)
 
-- `NotchWindowController`: borderless non-activating NSPanel at screen-saver level, measured against the real notch via `NSScreen.safeAreaInsets` + auxiliary top areas. Global click monitor collapses the island.
+- `NotchWindowController`: borderless non-activating NSPanel at status-bar level, measured against the real notch via `NSScreen.safeAreaInsets` + auxiliary top areas, re-measured through every display change. Global click monitor collapses the island.
 - `NotchViewModel`: island state, active tab, and the context handoff (`askAbout`) that lets clips and files flow into the Do surface.
-- `Features/`: MusicController (AppleScript polling), ClipboardStore (pasteboard polling, 1s), ShelfStore (drops, AirDrop, PDF/text extraction via PDFKit), NotesStore (UserDefaults).
-- `Views/`: NotchRootView (the morphing shape + drop target + wings), ExpandedView (tabs + Do), MusicStrip, ClipboardView, ShelfView.
+- `Features/`: MediaRemoteBridge + MusicController (system-wide now-playing via the vendored adapter, AppleScript enrichment for Spotify/Music extras), ClipboardStore (pasteboard polling, 1s, text and images), ShelfStore (drops, AirDrop, PDF/text extraction via PDFKit), NotesStore, ShortcutStore, VoiceController, FocusController.
+- `Views/`: NotchRootView (the morphing shape, ink and glass materials, drop target, wings), ExpandedView (tabs + Do), IslandRows (the media row), SettingsPane.
 - `AIService`: Apple's on-device model for quick answers and verb translation, keyless.
 
-## Known v1 trade-offs
+## Known trade-offs
 
-- Music polling via AppleScript every 3s. Fine for v1; MediaRemote gives richer data (artwork, progress) but it's a private framework, revisit later.
-- Clipboard is text-only for now. Images later.
-- `.screenSaver` window level sits above fullscreen video. Revisit.
-- No conversation memory in ask, each question is fresh.
-- No global hotkey yet, click-to-open only.
+- Now-playing rides a vendored MediaRemote adapter (BSD-3) loaded through `/usr/bin/perl`; if a future macOS closes that door, the app falls back to AppleScript polling for Spotify and Apple Music only.
+- No conversation memory in ask, each question is fresh. Long conversations belong to the Chat tab.
+- No global hotkey, by choice: every summon key collided with something. Hover, the mic, or the typed bar open the island.
+- Unsigned; the first open needs one Open Anyway.
 
 ## Roadmap
 
-- **v1.5:** Messages sending, menu bar countdown, richer chat pane.
-- **v2:** meeting brief before your next call, screen context, image clips, artwork via MediaRemote.
-- Launch: notarized build ($99 Apple Developer), landing page with the mockup embedded, Homebrew cask.
+- **v1.5:** Messages sending, menu bar countdown.
+- **v2:** meeting brief before your next call, screen context.
+- Distribution: Homebrew cask; a notarized build if enrollment ever earns its $99. The landing page is [live](https://chetanjon.github.io/moai/).
 
 ## Audio attributions
 

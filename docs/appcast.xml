@@ -3,12 +3,12 @@
     <channel>
         <title>Plum</title>
         <item>
-            <title>1.1.5</title>
-            <pubDate>Thu, 23 Jul 2026 00:43:48 -0700</pubDate>
-            <sparkle:version>93</sparkle:version>
-            <sparkle:shortVersionString>1.1.5</sparkle:shortVersionString>
+            <title>1.1.6</title>
+            <pubDate>Thu, 23 Jul 2026 00:58:01 -0700</pubDate>
+            <sparkle:version>94</sparkle:version>
+            <sparkle:shortVersionString>1.1.6</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
-            <enclosure url="https://github.com/chetanjon/plum/releases/download/v1.1.5/Plum-1.1.5.zip" length="16382400" type="application/octet-stream" sparkle:edSignature="Rdx1UdTJwWFMge1102eOf9saTQYd6cj52v6pSjT9hwziUl9KqY7xKzqprPpZbBMFOqeVbPhmJIcm0od2ADt8Cw=="/>
+            <enclosure url="https://github.com/chetanjon/plum/releases/download/v1.1.6/Plum-1.1.6.zip" length="16377380" type="application/octet-stream" sparkle:edSignature="Y7uBEJDGbUoliP1cKCVKDbvM5z+IIRKbymxRDwio8zkYUi8NhnWmluE/ZyX42M8Xh46gZwSMCRF5seoZfCo4CA=="/>
         </item>
     </channel>
 </rss>

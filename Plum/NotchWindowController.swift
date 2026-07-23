@@ -417,7 +417,7 @@ final class NotchWindowController {
         sliverPanels.forEach { $0.orderOut(nil) }
         sliverPanels.removeAll()
         for screen in targets {
-            let width: CGFloat = 84, height: CGFloat = 7
+            let width: CGFloat = 100, height: CGFloat = 13
             let frame = NSRect(
                 x: screen.frame.midX - width / 2,
                 y: screen.frame.maxY - height,
@@ -708,46 +708,19 @@ final class NotchWindowController {
 /// sliver silhouette, pure hint, no content. Hovering it (the zone,
 /// not the pixels; it ignores the mouse) summons the island over.
 private struct SliverHint: View {
+    /// A miniature of the Mac's own notch pill (user, 2026-07-23,
+    /// "the same thing as it is on my Mac, but smaller"): flat top,
+    /// straight sides, the shoulder eave and rounded bottom of the
+    /// real hardware, at half scale. No arcs, no beads.
+    private var shape: IslandShape {
+        IslandShape(eave: 4, bottomRadius: 8, belly: 0.5)
+    }
+
     var body: some View {
-        ZStack {
-            SliverBead().fill(Color.black)
-            SliverBeadEdge()
-                .stroke(Theme.lipLight, lineWidth: 1)
-                .opacity(0.9)
-        }
-    }
-}
-
-/// A shallow water bead hanging from the screen edge: flat where it
-/// meets the glass, one soft arc below. The straight-sided strip it
-/// replaces read as a hard sticker (user, 2026-07-23, "too sharp").
-private struct SliverBead: Shape {
-    func path(in rect: CGRect) -> Path {
-        var p = Path()
-        p.move(to: .zero)
-        p.addLine(to: CGPoint(x: rect.maxX, y: 0))
-        p.addCurve(
-            to: .zero,
-            control1: CGPoint(x: rect.maxX * 0.68, y: rect.maxY * 1.1),
-            control2: CGPoint(x: rect.maxX * 0.32, y: rect.maxY * 1.1)
-        )
-        p.closeSubpath()
-        return p
-    }
-}
-
-/// The bead's lit lower edge only; stroking the closed shape would
-/// draw a stray line along the screen edge itself.
-private struct SliverBeadEdge: Shape {
-    func path(in rect: CGRect) -> Path {
-        var p = Path()
-        p.move(to: CGPoint(x: rect.maxX, y: 0))
-        p.addCurve(
-            to: .zero,
-            control1: CGPoint(x: rect.maxX * 0.68, y: rect.maxY * 1.1),
-            control2: CGPoint(x: rect.maxX * 0.32, y: rect.maxY * 1.1)
-        )
-        return p
+        shape
+            .fill(Color.black)
+            .overlay(shape.strokeBorder(Theme.specularEdge, lineWidth: 1).opacity(0.75))
+            .overlay(shape.strokeBorder(Theme.lipLight, lineWidth: 1))
     }
 }
 

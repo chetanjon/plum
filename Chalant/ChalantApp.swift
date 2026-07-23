@@ -48,30 +48,44 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Tiny menu bar item so the agent app can be quit
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        // The house mark, drawn by hand: the island silhouette. Flat
-        // across the top like the pill meeting the screen edge, a soft
-        // rounded belly below. A downward tab with no circle in it, so
-        // it never reads as a toggle beside the system ones.
+        // The house mark, drawn by hand: the little watcher. A floating
+        // bar over a tapered body with one eye, its ember punched
+        // through. Even-odd fill keeps the eye open. Matches the app
+        // icon exactly; no capsule, so it can't read as a toggle.
         let icon = NSImage(size: NSSize(width: 18, height: 18), flipped: false) { _ in
-            // y is up: the flat top sits high, the belly hangs below.
-            let x0 = 4.2, x1 = 13.8, topY = 12.6, shoulderY = 8.8
-            let corner = 1.5
-            let p = NSBezierPath()
-            p.move(to: NSPoint(x: x0, y: topY - corner))
-            p.curve(to: NSPoint(x: x0 + corner, y: topY),
-                    controlPoint1: NSPoint(x: x0, y: topY),
-                    controlPoint2: NSPoint(x: x0, y: topY))
-            p.line(to: NSPoint(x: x1 - corner, y: topY))
-            p.curve(to: NSPoint(x: x1, y: topY - corner),
-                    controlPoint1: NSPoint(x: x1, y: topY),
-                    controlPoint2: NSPoint(x: x1, y: topY))
-            p.line(to: NSPoint(x: x1, y: shoulderY))
-            p.curve(to: NSPoint(x: x0, y: shoulderY),
-                    controlPoint1: NSPoint(x: x1, y: 3.4),
-                    controlPoint2: NSPoint(x: x0, y: 3.4))
-            p.close()
+            let scale = 22.4, cx = 9.0, topY = 16.5  // y up: pill high, body below
+            let path = NSBezierPath()
+            path.windingRule = .evenOdd
+            let pw = 0.52 * scale, ph = 0.135 * scale
+            path.appendRoundedRect(
+                NSRect(x: cx - pw / 2, y: topY - ph, width: pw, height: ph),
+                xRadius: ph / 2, yRadius: ph / 2
+            )
+            let bodyTop = topY - 0.20 * scale, bodyBot = topY - 0.66 * scale
+            let tw = 0.60 * scale, bw = 0.46 * scale
+            let r = 0.06 * scale
+            let corners = [
+                (cx - tw / 2, bodyTop), (cx + tw / 2, bodyTop),
+                (cx + bw / 2, bodyBot), (cx - bw / 2, bodyBot),
+            ]
+            for i in 0..<4 {
+                let cur = corners[i], prev = corners[(i + 3) % 4], next = corners[(i + 1) % 4]
+                func unit(_ f: (Double, Double), _ t: (Double, Double)) -> (Double, Double) {
+                    let dx = t.0 - f.0, dy = t.1 - f.1, L = max((dx * dx + dy * dy).squareRoot(), 0.0001)
+                    return (dx / L, dy / L)
+                }
+                let up = unit(cur, prev), un = unit(cur, next)
+                let p1 = NSPoint(x: cur.0 + up.0 * r, y: cur.1 + up.1 * r)
+                let p2 = NSPoint(x: cur.0 + un.0 * r, y: cur.1 + un.1 * r)
+                let ctl = NSPoint(x: cur.0, y: cur.1)
+                if i == 0 { path.move(to: p1) } else { path.line(to: p1) }
+                path.curve(to: p2, controlPoint1: ctl, controlPoint2: ctl)
+            }
+            path.close()
+            let er = 0.085 * scale, ecy = topY - 0.42 * scale
+            path.appendOval(in: NSRect(x: cx - er, y: ecy - er, width: er * 2, height: er * 2))
             NSColor.black.setFill()
-            p.fill()
+            path.fill()
             return true
         }
         icon.isTemplate = true

@@ -349,33 +349,55 @@ struct PressableStyle: ButtonStyle {
 /// around the icon, a tint lift and faint halo on hover, and a press
 /// sink. Every bare-glyph control in the app routes through this.
 
-/// The house mark: the island silhouette itself. Flat across the
-/// top the way the pill meets the screen's edge, rounded below into
-/// a soft belly. A downward tab, not a horizontal capsule; no circle
-/// anywhere, so it can never be read as a toggle switch. This is the
-/// product's own shape, distilled.
+/// A rounded quadrilateral: each corner cut back by `r` and bridged
+/// with a quad curve. Used for the mark's tapered body.
+private func roundedQuad(
+    _ a: CGPoint, _ b: CGPoint, _ c: CGPoint, _ d: CGPoint, r: CGFloat
+) -> Path {
+    let pts = [a, b, c, d]
+    var path = Path()
+    func unit(_ from: CGPoint, _ to: CGPoint) -> CGPoint {
+        let dx = to.x - from.x, dy = to.y - from.y
+        let len = max(hypot(dx, dy), 0.0001)
+        return CGPoint(x: dx / len, y: dy / len)
+    }
+    for i in 0..<4 {
+        let cur = pts[i], prev = pts[(i + 3) % 4], next = pts[(i + 1) % 4]
+        let up = unit(cur, prev), un = unit(cur, next)
+        let p1 = CGPoint(x: cur.x + up.x * r, y: cur.y + up.y * r)
+        let p2 = CGPoint(x: cur.x + un.x * r, y: cur.y + un.y * r)
+        if i == 0 { path.move(to: p1) } else { path.addLine(to: p1) }
+        path.addQuadCurve(to: p2, control: cur)
+    }
+    path.closeSubpath()
+    return path
+}
+
+/// The house mark: the little watcher. A rounded bar floats above a
+/// tapered body with one round eye; "it watches so you don't have
+/// to." No horizontal capsule, no knob, so it never reads as a
+/// toggle. Rendered with an even-odd fill so the eye stays open.
 struct ChalantMarkShape: Shape {
     func path(in rect: CGRect) -> Path {
         let d = min(rect.width, rect.height)
-        let w = d * 0.78
-        let x0 = rect.midX - w / 2
-        let x1 = rect.midX + w / 2
-        let top = rect.midY - d * 0.30
-        let shoulder = rect.midY + d * 0.02
-        let belly = rect.midY + d * 0.40
-        let corner = d * 0.09
+        let scale = d * 1.34
+        let cx = rect.midX
+        let top = rect.midY - 0.33 * scale
         var p = Path()
-        p.move(to: CGPoint(x: x0, y: top + corner))
-        p.addQuadCurve(to: CGPoint(x: x0 + corner, y: top),
-                       control: CGPoint(x: x0, y: top))
-        p.addLine(to: CGPoint(x: x1 - corner, y: top))
-        p.addQuadCurve(to: CGPoint(x: x1, y: top + corner),
-                       control: CGPoint(x: x1, y: top))
-        p.addLine(to: CGPoint(x: x1, y: shoulder))
-        p.addCurve(to: CGPoint(x: x0, y: shoulder),
-                   control1: CGPoint(x: x1, y: belly),
-                   control2: CGPoint(x: x0, y: belly))
-        p.closeSubpath()
+        let pw = 0.52 * scale, ph = 0.135 * scale
+        p.addRoundedRect(
+            in: CGRect(x: cx - pw / 2, y: top, width: pw, height: ph),
+            cornerSize: CGSize(width: ph / 2, height: ph / 2)
+        )
+        let bodyTop = top + 0.20 * scale, bodyBot = top + 0.66 * scale
+        let tw = 0.60 * scale, bw = 0.46 * scale
+        p.addPath(roundedQuad(
+            CGPoint(x: cx - tw / 2, y: bodyTop), CGPoint(x: cx + tw / 2, y: bodyTop),
+            CGPoint(x: cx + bw / 2, y: bodyBot), CGPoint(x: cx - bw / 2, y: bodyBot),
+            r: 0.06 * scale
+        ))
+        let er = 0.085 * scale, ecy = top + 0.42 * scale
+        p.addEllipse(in: CGRect(x: cx - er, y: ecy - er, width: er * 2, height: er * 2))
         return p
     }
 }
@@ -390,6 +412,7 @@ struct GlyphImage: View {
     var body: some View {
         if symbol == "chalant.mark" {
             ChalantMarkShape()
+                .fill(style: FillStyle(eoFill: true))
                 .frame(width: scale.rawValue + 2, height: scale.rawValue + 2)
         } else {
             Image(systemName: symbol)

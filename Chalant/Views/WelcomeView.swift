@@ -27,14 +27,20 @@ struct WelcomeView: View {
     private var content: some View {
         switch model.welcomeStep {
         case 0:
-            step(
-                title: "I live up here.",
-                lines: [
-                    ("cursorarrow.motionlines", "Glide to the top of the screen and I open."),
-                    ("mic.fill", "Tap the mic and talk, or just type in the bar."),
-                    ("bolt.fill", "The verbs run on this Mac, keyless and instant."),
-                ]
-            )
+            VStack(alignment: .leading, spacing: Theme.Space.m) {
+                ChalantWordmark()
+                    .frame(width: 104, height: 22)
+                    .foregroundStyle(Theme.textPrimary)
+                    .accessibilityLabel("Chalant")
+                step(
+                    title: "I live up here.",
+                    lines: [
+                        ("cursorarrow.motionlines", "Glide to the top of the screen and I open."),
+                        ("mic.fill", "Tap the mic and talk, or just type in the bar."),
+                        ("bolt.fill", "The verbs run on this Mac, keyless and instant."),
+                    ]
+                )
+            }
         case 1:
             VStack(alignment: .leading, spacing: Theme.Space.m) {
                 Text("Say it.")

@@ -402,6 +402,80 @@ struct ChalantMarkShape: Shape {
     }
 }
 
+/// Samples an SVG circular arc (rx == ry) into `path` as a polyline,
+/// via the standard endpoint-to-center parameterization. Kept as an
+/// explicit sample so arc direction can never be held backwards the
+/// way SwiftUI's addArc sweep flag invites.
+private func appendSVGArc(
+    _ path: inout Path, from p0: CGPoint, to p1: CGPoint,
+    r: CGFloat, largeArc: Bool, sweep: Bool, samples: Int = 48
+) {
+    let x1 = p0.x, y1 = p0.y, x2 = p1.x, y2 = p1.y
+    let x1p = (x1 - x2) / 2, y1p = (y1 - y2) / 2   // x-axis rotation is 0
+    let rsq = r * r
+    var num = rsq * rsq - rsq * y1p * y1p - rsq * x1p * x1p
+    let den = rsq * y1p * y1p + rsq * x1p * x1p
+    if num < 0 { num = 0 }
+    var coef = den == 0 ? 0 : (num / den).squareRoot()
+    if largeArc == sweep { coef = -coef }
+    let cxp = coef * y1p, cyp = coef * -x1p
+    let cx = cxp + (x1 + x2) / 2, cy = cyp + (y1 + y2) / 2
+    func ang(_ ux: CGFloat, _ uy: CGFloat, _ vx: CGFloat, _ vy: CGFloat) -> CGFloat {
+        let dot = ux * vx + uy * vy
+        let len = ((ux * ux + uy * uy) * (vx * vx + vy * vy)).squareRoot()
+        var a = acos(max(-1, min(1, len == 0 ? 1 : dot / len)))
+        if ux * vy - uy * vx < 0 { a = -a }
+        return a
+    }
+    let ux = (x1p - cxp) / r, uy = (y1p - cyp) / r
+    let theta1 = ang(1, 0, ux, uy)
+    var dtheta = ang(ux, uy, (-x1p - cxp) / r, (-y1p - cyp) / r)
+    if !sweep, dtheta > 0 { dtheta -= 2 * .pi }
+    if sweep, dtheta < 0 { dtheta += 2 * .pi }
+    for i in 0...samples {
+        let a = theta1 + dtheta * CGFloat(i) / CGFloat(samples)
+        let pt = CGPoint(x: cx + r * cos(a), y: cy + r * sin(a))
+        if i == 0 { path.move(to: pt) } else { path.addLine(to: pt) }
+    }
+}
+
+/// The wordmark: "chalant" in the brand's own hand, the exact stroked
+/// letterforms from the brand SVG (monoline, round caps, the open-arc
+/// c). Drawn in a 255..1067 x 18..194 view box and mapped into `rect`
+/// aspect-fit; fill it with a color and it reads as the wordmark.
+struct ChalantWordmark: Shape {
+    func path(in rect: CGRect) -> Path {
+        var cl = Path()
+        func M(_ x: CGFloat, _ y: CGFloat) { cl.move(to: CGPoint(x: x, y: y)) }
+        func L(_ x: CGFloat, _ y: CGFloat) { cl.addLine(to: CGPoint(x: x, y: y)) }
+        func bowl(_ cx: CGFloat) {
+            cl.addEllipse(in: CGRect(x: cx - 50, y: 70, width: 100, height: 100))
+        }
+        appendSVGArc(&cl, from: CGPoint(x: 298.4, y: 84.6),
+                     to: CGPoint(x: 298.4, y: 155.4), r: 50, largeArc: true, sweep: false) // c
+        M(369, 40); L(369, 170)                                                            // h stem
+        M(369, 104); appendSVGArc(&cl, from: CGPoint(x: 369, y: 104),
+                     to: CGPoint(x: 437, y: 104), r: 34, largeArc: false, sweep: true); L(437, 170) // h arch
+        bowl(545); M(595, 70); L(595, 170)                                                 // a
+        M(653, 40); L(653, 170)                                                            // l
+        bowl(761); M(811, 70); L(811, 170)                                                 // a
+        M(869, 170); L(869, 104); appendSVGArc(&cl, from: CGPoint(x: 869, y: 104),
+                     to: CGPoint(x: 937, y: 104), r: 34, largeArc: false, sweep: true); L(937, 170) // n
+        M(1019, 44); L(1019, 140); appendSVGArc(&cl, from: CGPoint(x: 1019, y: 140),
+                     to: CGPoint(x: 1049, y: 170), r: 30, largeArc: false, sweep: false)   // t stem+hook
+        M(995, 70); L(1047, 70)                                                            // t crossbar
+        let stroked = cl.strokedPath(
+            StrokeStyle(lineWidth: 26, lineCap: .round, lineJoin: .round)
+        )
+        let box = CGRect(x: 255, y: 18, width: 812, height: 176)
+        let s = min(rect.width / box.width, rect.height / box.height)
+        let t = CGAffineTransform(translationX: rect.midX, y: rect.midY)
+            .scaledBy(x: s, y: s)
+            .translatedBy(x: -box.midX, y: -box.midY)
+        return stroked.applying(t)
+    }
+}
+
 /// An SF Symbol by name, or the chalant mark for "chalant.mark", sized to
 /// sit beside the symbol font it replaces.
 struct GlyphImage: View {

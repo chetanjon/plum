@@ -189,7 +189,7 @@ struct FocusPanel: View {
         nameFormatter.string(from: day)
     }
 
-    /// The count-up door, beside the countdown chips.
+    /// The count-up door, on its own line under its own words.
     private var stopwatchChip: some View {
         Button {
             stopwatch.start()
@@ -238,7 +238,7 @@ struct FocusPanel: View {
                     scale: .s,
                     tint: Theme.textSecondary
                 ) {
-                    if stopwatch.isRunning { stopwatch.pause() } else { stopwatch.start() }
+                    stopwatch.toggle()
                 }
                 CloseButton(scale: .s) {
                     stopwatch.reset()

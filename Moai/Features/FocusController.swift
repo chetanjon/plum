@@ -83,6 +83,11 @@ final class StopwatchController: ObservableObject {
         self.timer = timer
     }
 
+    /// The one pause/play flip both buttons share.
+    func toggle() {
+        if isRunning { pause() } else { start() }
+    }
+
     /// Freeze and hand back the reading; the reading stays on screen.
     @discardableResult
     func pause() -> String {

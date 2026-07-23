@@ -40,16 +40,23 @@ final class UpdateChecker: ObservableObject {
         self.timer = timer
     }
 
-    /// `pretendCurrent` lets Debug builds rehearse the stale path.
-    func check(pretendCurrent: String? = nil) async {
-        guard Self.enabled else { return }
-        var request = URLRequest(url: releasesAPI)
+    /// One fetch for both the daily check and the "what's new" verb:
+    /// the release JSON and its version, tag prefix already shed.
+    private func fetchLatestRelease() async -> (version: String, json: [String: Any])? {
+        var request = URLRequest(url: releasesAPI, timeoutInterval: 8)
         request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
         guard let (data, _) = try? await URLSession.shared.data(for: request),
               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let tag = json["tag_name"] as? String
-        else { return }
-        let remote = tag.hasPrefix("v") ? String(tag.dropFirst()) : tag
+        else { return nil }
+        let version = tag.hasPrefix("v") ? String(tag.dropFirst()) : tag
+        return (version, json)
+    }
+
+    /// `pretendCurrent` lets Debug builds rehearse the stale path.
+    func check(pretendCurrent: String? = nil) async {
+        guard Self.enabled else { return }
+        guard let (remote, _) = await fetchLatestRelease() else { return }
         let current = pretendCurrent
             ?? (Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0")
         guard Self.isNewer(remote, than: current) else {
@@ -67,16 +74,11 @@ final class UpdateChecker: ObservableObject {
     /// and bullet notes, fetched on ask. Same endpoint as the daily
     /// check, so the network learns nothing it didn't already hear.
     func latestNotes() async -> String? {
-        // Bounded: the caller holds isWorking while awaiting, and
-        // isWorking gates input and hover-collapse; an unanswered
-        // fetch must never wedge the island (review-caught).
-        var request = URLRequest(url: releasesAPI, timeoutInterval: 8)
-        request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
-        guard let (data, _) = try? await URLSession.shared.data(for: request),
-              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let tag = json["tag_name"] as? String
-        else { return nil }
-        let remote = tag.hasPrefix("v") ? String(tag.dropFirst()) : tag
+        // Bounded by the shared fetch's 8s timeout: the caller holds
+        // isWorking while awaiting, and isWorking gates input and
+        // hover-collapse; an unanswered fetch must never wedge the
+        // island (review-caught).
+        guard let (remote, json) = await fetchLatestRelease() else { return nil }
         let title = (json["name"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? remote
         let current = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0"
         let header = Self.isNewer(remote, than: current)

@@ -66,8 +66,6 @@ struct NotchRootView: View {
         focus.isActive || timer.isActive || stopwatch.isActive
     }
 
-    private var hasLeftWing: Bool { sessionActive }
-
     /// Music and a session at once: the wave keeps the left wing and
     /// the session mark takes the right (user, 2026-07-22).
     private var sessionOnRight: Bool {
@@ -372,7 +370,7 @@ struct NotchRootView: View {
                     .overlay {
                         if glowOn, Theme.Feel.current.ambient,
                            model.state == .collapsed,
-                           hasLeftWing || music.nowPlaying?.isPlaying == true {
+                           sessionActive || music.nowPlaying?.isPlaying == true {
                             TimelineView(.animation(minimumInterval: 1 / 15)) { context in
                                 let t = context.date.timeIntervalSinceReferenceDate
                                 let breath = 0.5 + 0.5 * sin(t / (1.6 * Theme.Motion.ambientSlow))
@@ -536,9 +534,11 @@ struct NotchRootView: View {
                 Image(systemName: "stopwatch")
                     .font(Theme.Fonts.icon(.xs))
                     .foregroundStyle(accent)
+                    .opacity(stopwatch.isRunning ? 1 : 0.5)
                 Text(stopwatch.display)
                     .font(Theme.Fonts.labelMono)
                     .foregroundStyle(Theme.textPrimary)
+                    .opacity(stopwatch.isRunning ? 1 : 0.5)
             } else {
                 ProgressRing(
                     progress: focus.isActive ? focus.progress : timer.progress,

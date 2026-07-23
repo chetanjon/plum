@@ -33,9 +33,20 @@ enum PermissionPrimer {
             guard !NSRunningApplication
                 .runningApplications(withBundleIdentifier: bundleID)
                 .isEmpty else { continue }
-            let target = NSAppleEventDescriptor(bundleIdentifier: bundleID)
-            _ = AEDeterminePermissionToAutomateTarget(
-                target.aeDesc, typeWildCard, typeWildCard, true
+            primeAutomation(bundleID: bundleID, askIfNeeded: true)
+        }
+    }
+
+    /// The one home for the AE-grant call. `aeDesc` is an unsafe
+    /// pointer whose validity ends with the descriptor, so the
+    /// descriptor must outlive the call explicitly; ARC owes it
+    /// nothing past its last use (review-caught).
+    @discardableResult
+    static func primeAutomation(bundleID: String, askIfNeeded: Bool) -> OSStatus {
+        let target = NSAppleEventDescriptor(bundleIdentifier: bundleID)
+        return withExtendedLifetime(target) {
+            AEDeterminePermissionToAutomateTarget(
+                target.aeDesc, typeWildCard, typeWildCard, askIfNeeded
             )
         }
     }

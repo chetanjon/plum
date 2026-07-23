@@ -70,8 +70,25 @@ final class MessageCourier {
 
         let tokens = trimmed.split(separator: " ").map(String.init)
 
-        // A literal handle never spans words: digits are a phone
-        // number, an @ is an email, both already say where to go.
+        // A spoken or pasted phone number arrives as several tokens
+        // ("+1 (630) 545 8630"); eat the leading phone-shaped run as
+        // one handle before asking the address book anything.
+        var phoneTokens = 0
+        var digitCount = 0
+        for token in tokens {
+            guard token.allSatisfy({ $0.isNumber || "+-().".contains($0) }),
+                  !token.isEmpty else { break }
+            phoneTokens += 1
+            digitCount += token.filter(\.isNumber).count
+        }
+        if phoneTokens > 0, digitCount >= 7 {
+            return await stage(
+                recipient: tokens.prefix(phoneTokens).joined(separator: " "),
+                body: tokens.dropFirst(phoneTokens).joined(separator: " ")
+            )
+        }
+
+        // An email never spans words; it already says where to go.
         if let first = tokens.first, Self.literalHandle(first) != nil {
             return await stage(
                 recipient: first,
@@ -95,9 +112,7 @@ final class MessageCourier {
                 guard !body.isEmpty else {
                     return "Text \(name) what? Say it in one line: text \(name.lowercased()), then the words."
                 }
-                pending = Pending(name: name, handle: handle, body: body, staged: Date())
-                primeMessagesGrant()
-                return readBack()
+                return stagePending(name: name, handle: handle, body: body)
             case .many(let names) where ambiguous == nil:
                 ambiguous = names
             case .denied:
@@ -130,9 +145,7 @@ final class MessageCourier {
         }
 
         if let literal = Self.literalHandle(who) {
-            pending = Pending(name: who, handle: literal, body: what, staged: Date())
-            primeMessagesGrant()
-            return readBack()
+            return stagePending(name: who, handle: literal, body: what)
         }
 
         if let gate = contactsGate() { return gate }
@@ -147,10 +160,15 @@ final class MessageCourier {
         case .failed:
             return "Contacts didn't answer. Say it again in a moment."
         case .one(let name, let handle):
-            pending = Pending(name: name, handle: handle, body: what, staged: Date())
-            primeMessagesGrant()
-            return readBack()
+            return stagePending(name: name, handle: handle, body: what)
         }
+    }
+
+    /// Stage, front the grant, read back: one door for every path.
+    private func stagePending(name: String, handle: String, body: String) -> String {
+        pending = Pending(name: name, handle: handle, body: body, staged: Date())
+        primeMessagesGrant()
+        return readBack()
     }
 
     /// The Contacts dialog must never be awaited from here: a dialog
@@ -278,7 +296,10 @@ final class MessageCourier {
             $0.isNumber || "+-() .".contains($0)
         }
         if phoneish, digits.count >= 7 {
-            return "+" == text.first.map(String.init) ? text : digits
+            // Formatting never travels: "+1 (555) 123-4567" goes out
+            // as +15551234567 (review-caught; the plus branch used
+            // to keep its parentheses).
+            return text.first == "+" ? "+" + digits : digits
         }
         return nil
     }
@@ -287,10 +308,17 @@ final class MessageCourier {
     /// beats given name beats full name; several equal hits come back
     /// as a question instead of a guess.
     nonisolated private static func resolve(_ spokenName: String) async -> Resolution {
-        // The gate upstream already asked and answered; anything but
-        // a yes stops here.
-        guard CNContactStore.authorizationStatus(for: .contacts) == .authorized
-        else { return .denied }
+        // Mirror the gate exactly: it lets through anything that is
+        // not undetermined/denied/restricted (limited access counts
+        // as a yes), so requiring .authorized here called limited
+        // access "denied" and pointed at the wrong fix (review-
+        // caught).
+        switch CNContactStore.authorizationStatus(for: .contacts) {
+        case .notDetermined, .denied, .restricted:
+            return .denied
+        default:
+            break
+        }
         let store = CNContactStore()
 
         let keys = [
@@ -377,10 +405,7 @@ final class MessageCourier {
     /// no. nil means Messages isn't running to be asked about.
     private func messagesGrantStatus() -> OSStatus? {
         guard let bundleID = runningMessagesBundleID else { return nil }
-        let target = NSAppleEventDescriptor(bundleIdentifier: bundleID)
-        return AEDeterminePermissionToAutomateTarget(
-            target.aeDesc, typeWildCard, typeWildCard, false
-        )
+        return PermissionPrimer.primeAutomation(bundleID: bundleID, askIfNeeded: false)
     }
 
     /// The automation dialog can only be raised for a running app, so
@@ -410,10 +435,7 @@ final class MessageCourier {
 
     private static func primeAutomation(bundleID: String) {
         scriptQueue.async {
-            let target = NSAppleEventDescriptor(bundleIdentifier: bundleID)
-            _ = AEDeterminePermissionToAutomateTarget(
-                target.aeDesc, typeWildCard, typeWildCard, true
-            )
+            PermissionPrimer.primeAutomation(bundleID: bundleID, askIfNeeded: true)
         }
     }
 }

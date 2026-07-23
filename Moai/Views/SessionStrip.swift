@@ -61,7 +61,7 @@ struct SessionStrip: View {
                     scale: .xs,
                     tint: Theme.textSecondary
                 ) {
-                    if stopwatch.isRunning { stopwatch.pause() } else { stopwatch.start() }
+                    stopwatch.toggle()
                 }
             }
             CloseButton {

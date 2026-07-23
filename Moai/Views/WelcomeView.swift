@@ -42,9 +42,9 @@ struct WelcomeView: View {
                     .foregroundStyle(Theme.textPrimary)
                 VStack(alignment: .leading, spacing: Theme.Space.s) {
                     verb("remind me to call amma at 6")
+                    verb("text amma: on my way")
                     verb("focus 25")
                     verb("left half")
-                    verb("open figma")
                     verb("cancel my 3pm")
                     verb("find parcel")
                 }

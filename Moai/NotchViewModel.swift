@@ -747,6 +747,12 @@ final class NotchViewModel: ObservableObject {
                         self.answer += delta
                         self.lastStreamActivity = Date()
                     }
+                    // Freeform answers used to vanish from the trail
+                    // ("went to the model" was the last word); the
+                    // landing is worth a line.
+                    if let self, !self.answer.isEmpty {
+                        self.logVoice(text, outcome: "model answered, \(self.answer.count) chars")
+                    }
                 } catch {
                     // Watchdog cancellation reports through its own
                     // message; only real failures land here.

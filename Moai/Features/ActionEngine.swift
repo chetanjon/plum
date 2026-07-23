@@ -103,9 +103,33 @@ final class ActionEngine {
         // window, on-device OCR, and the words ride the same attach
         // pipeline as a dropped file. Ask the next question against
         // it. The heavy grant is asked in context, never awaited.
-        if ["read my screen", "read the screen", "read screen",
-            "what's on my screen", "whats on my screen",
-            "look at my screen", "ask about my screen"].contains(lower) {
+        // One-shot forms ("summarize my screen") capture, attach,
+        // and return nil so the normal fallback streams the answer
+        // against the fresh context in the same breath.
+        let screenOneShot = ["summarize my screen", "summarize the screen",
+                             "explain my screen", "explain the screen",
+                             "summarize what's on my screen",
+                             "explain what's on my screen"].contains(lower)
+        if screenOneShot {
+            if ScreenReader.preflight() {
+                model.isWorking = true
+                let outcome = await ScreenReader.readFrontWindow()
+                model.isWorking = false
+                if case .text(let app, let words) = outcome {
+                    model.pendingContext = (
+                        name: "\(app)'s window",
+                        text: String(words.prefix(6000))
+                    )
+                    return nil
+                }
+            }
+            // No grant or no words: fall through to the plain verb's
+            // honest answers below.
+        }
+        if screenOneShot ||
+            ["read my screen", "read the screen", "read screen",
+             "what's on my screen", "whats on my screen",
+             "look at my screen", "ask about my screen"].contains(lower) {
             guard ScreenReader.preflight() else {
                 ScreenReader.requestGrant()
                 return "macOS is asking about Screen Recording. Allow it (a relaunch may be needed), then say it again. The reading stays on this Mac."

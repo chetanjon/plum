@@ -412,7 +412,7 @@ final class NotchWindowController {
         sliverPanels.forEach { $0.orderOut(nil) }
         sliverPanels.removeAll()
         for screen in targets {
-            let width: CGFloat = 120, height: CGFloat = 14
+            let width: CGFloat = 90, height: CGFloat = 9
             let frame = NSRect(
                 x: screen.frame.midX - width / 2,
                 y: screen.frame.maxY - height,
@@ -720,8 +720,8 @@ private struct SliverBead: Shape {
         p.addLine(to: CGPoint(x: rect.maxX, y: 0))
         p.addCurve(
             to: .zero,
-            control1: CGPoint(x: rect.maxX * 0.72, y: rect.maxY * 1.4),
-            control2: CGPoint(x: rect.maxX * 0.28, y: rect.maxY * 1.4)
+            control1: CGPoint(x: rect.maxX * 0.72, y: rect.maxY * 1.3),
+            control2: CGPoint(x: rect.maxX * 0.28, y: rect.maxY * 1.3)
         )
         p.closeSubpath()
         return p
@@ -736,8 +736,8 @@ private struct SliverBeadEdge: Shape {
         p.move(to: CGPoint(x: rect.maxX, y: 0))
         p.addCurve(
             to: .zero,
-            control1: CGPoint(x: rect.maxX * 0.72, y: rect.maxY * 1.4),
-            control2: CGPoint(x: rect.maxX * 0.28, y: rect.maxY * 1.4)
+            control1: CGPoint(x: rect.maxX * 0.72, y: rect.maxY * 1.3),
+            control2: CGPoint(x: rect.maxX * 0.28, y: rect.maxY * 1.3)
         )
         return p
     }

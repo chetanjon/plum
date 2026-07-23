@@ -55,7 +55,6 @@ struct SettingsPane: View {
         = MusicController.playingSignalDefault
     @AppStorage("glanceSession") private var glanceSession = true
     @AppStorage("glanceNextEvent") private var glanceNextEvent = true
-    @AppStorage("glanceIdle") private var glanceIdle = "none"
 
     @Environment(\.plumAccent) private var accent
 
@@ -201,13 +200,6 @@ struct SettingsPane: View {
                         Text("Needs the Calendar today block on.")
                             .font(Theme.Fonts.caption)
                             .foregroundStyle(Theme.textHint)
-                    }
-                    divider
-                    row("When idle") {
-                        picker($glanceIdle, [
-                            ("Clock", "clock"), ("Day", "day"),
-                            ("Streak", "streak"), ("Nothing", "none"),
-                        ])
                     }
                 }
                 section("Life", reveal: 3) {

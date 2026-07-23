@@ -31,10 +31,6 @@ struct NotchRootView: View {
     @AppStorage("islandMaterial") private var islandMaterial = "ink"
     @AppStorage("glassClarity") private var glassClarity = "balanced"
     @AppStorage("glanceNextEvent") private var glanceNextEvent = true
-    // "none" by default: an idle island earns no width, especially on
-    // monitors where the pill sits over working windows (user call,
-    // 2026-07-20).
-    @AppStorage("glanceIdle") private var glanceIdle = "none"
 
     /// This view injects the accent into the environment for everything
     /// below it, so it reads the source directly rather than @Environment
@@ -112,15 +108,12 @@ struct NotchRootView: View {
         if let next = upcomingEvent {
             return 112 + (next.joinURL != nil ? Self.cameraMarkWidth : 0)
         }
-        // Playing needs no right-side width at all; the symmetric
-        // wing math otherwise drags both sides out to the title's.
-        if music.nowPlaying?.isPlaying == true, glanceMusic { return 0 }
-        switch glanceIdle {
-        case "none": return 0
-        case "day": return 78
-        case "streak": return focusStats.days.isEmpty ? 55 : 130
-        default: return 55
-        }
+        // Playing or idle, no other right-side width: the day, the
+        // streak, and the clock glances all duplicated surfaces that
+        // already exist (the menu bar clock sits an inch away), and
+        // every one of them stretched the pill past the hardware
+        // (user, 2026-07-23, "it should not be too wide on the Mac").
+        return 0
     }
 
     // MARK: Notchless pill accounting
@@ -133,16 +126,8 @@ struct NotchRootView: View {
     private var monitorSession: Bool { sessionActive }
 
     private var monitorMiddleWidth: CGFloat {
-        if model.glanceToast != nil { return 148 }
-        if let next = upcomingEvent {
-            return 150 + (next.joinURL != nil ? Self.cameraMarkWidth : 0)
-        }
-        switch glanceIdle {
-        case "day": return 84
-        case "streak": return focusStats.days.isEmpty ? 60 : 136
-        case "clock": return 60
-        default: return 0
-        }
+        // The monitor pill exists only for a passing toast now.
+        model.glanceToast != nil ? 148 : 0
     }
 
     private var monitorContentWidth: CGFloat {
@@ -546,10 +531,6 @@ struct NotchRootView: View {
         // long and often arrives just as a break begins.
         if let toast = model.glanceToast {
             toastGlance(toast)
-        } else if let next = upcomingEvent {
-            upcomingGlance(next, width: 120)
-        } else {
-            idleGlance
         }
     }
 
@@ -598,8 +579,6 @@ struct NotchRootView: View {
             // scrolling title here was width without value, the same
             // call that removed the session label (user, 2026-07-21).
             EmptyView()
-        } else {
-            idleGlance
         }
     }
 
@@ -628,36 +607,6 @@ struct NotchRootView: View {
         .id(event.id)
     }
 
-    /// Nothing playing, nothing running: whatever quiet thing the
-    /// user chose for the empty moment.
-    @ViewBuilder
-    private var idleGlance: some View {
-        switch glanceIdle {
-        case "none":
-            EmptyView()
-        case "day":
-            TimelineView(.everyMinute) { context in
-                Text(
-                    context.date,
-                    format: .dateTime.weekday(.abbreviated)
-                        .hour(.defaultDigits(amPM: .omitted)).minute()
-                )
-                .font(Theme.Fonts.captionMono)
-                .foregroundStyle(Theme.textTertiary)
-            }
-        case "streak":
-            if focusStats.days.isEmpty {
-                clockGlance
-            } else {
-                Text(streakLine)
-                    .font(Theme.Fonts.captionMono)
-                    .foregroundStyle(Theme.textTertiary)
-            }
-        default:
-            clockGlance
-        }
-    }
-
     /// A finished session or timer, spoken softly in the accent for a
     /// few seconds, then gone.
     private func toastGlance(_ text: String) -> some View {
@@ -668,31 +617,6 @@ struct NotchRootView: View {
             .transition(.opacity)
     }
 
-    private var streakLine: String {
-        // With a goal set, the empty moment measures the day against
-        // it; otherwise it just counts the day.
-        let today: String
-        if focusStats.goalMinutes > 0 {
-            today = focusStats.goalMet
-                ? "\(FocusStatsStore.clock(focusStats.todayMinutes)) · goal met"
-                : "\(FocusStatsStore.clock(focusStats.todayMinutes)) of \(FocusStatsStore.clock(focusStats.goalMinutes))"
-        } else {
-            today = "\(FocusStatsStore.clock(focusStats.todayMinutes)) today"
-        }
-        guard focusStats.streak >= 2 else { return today }
-        return "\(focusStats.streak)d streak · \(today)"
-    }
-
-    private var clockGlance: some View {
-        TimelineView(.everyMinute) { context in
-            Text(
-                context.date,
-                format: .dateTime.hour(.defaultDigits(amPM: .omitted)).minute()
-            )
-            .font(Theme.Fonts.captionMono)
-            .foregroundStyle(Theme.textTertiary)
-        }
-    }
 
     /// One symbol, never digits: numbers clipped at real widths
     /// ("24:53" is five characters), a mark cannot (user, 2026-07-22,

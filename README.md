@@ -55,18 +55,8 @@ Unzip, drag Plum to Applications, open it. First open: macOS will ask once. Syst
 
 **Live status** (the open door)
 - Anything on your Mac can put a status pill on the island: `curl localhost:4242/activity -d '{"id":"deploy","title":"Deploying","state":"working"}'`. States: `working`, `needs-input`, `done`, `failed`, `clear`; `GET /activities` lists, `DELETE /activity/<id>` clears. Loopback only, never leaves the machine.
-- `scripts/plum` wraps it for humans and hooks: `plum working "Deploying"`, `plum needs-input "Claude wants you"`, `plum done "Build finished"`, `plum clear`. Copy it into your PATH if you like it.
-- Made for the things that have no home: Claude Code hooks, build scripts, deploys, renders, long downloads. The open island lists them attention-first (needs-input wears the accent); the closed pill never grows for any of it, and finished things fade on their own.
-- Claude Code wears it as a full lifecycle, four hooks sharing one id in `~/.claude/settings.json` (merge alongside any hooks you already run): a submitted prompt marks it working, a notification means it wants you, Stop says replied and fades on its own, and SessionEnd takes the pill down so an ended session never leaves "wants you" on the glass.
-
-```json
-"hooks": {
-  "UserPromptSubmit": [{"matcher": "", "hooks": [{"type": "command", "async": true, "command": "curl -sf -m 2 localhost:4242/activity -d '{\"id\":\"claude-code\",\"title\":\"Claude Code working\",\"state\":\"working\"}' >/dev/null 2>&1 || true"}]}],
-  "Notification":     [{"matcher": "", "hooks": [{"type": "command", "async": true, "command": "curl -sf -m 2 localhost:4242/activity -d '{\"id\":\"claude-code\",\"title\":\"Claude Code wants you\",\"state\":\"needs-input\"}' >/dev/null 2>&1 || true"}]}],
-  "Stop":             [{"matcher": "", "hooks": [{"type": "command", "async": true, "command": "curl -sf -m 2 localhost:4242/activity -d '{\"id\":\"claude-code\",\"title\":\"Claude Code replied\",\"state\":\"done\"}' >/dev/null 2>&1 || true"}]}],
-  "SessionEnd":       [{"matcher": "", "hooks": [{"type": "command", "async": true, "command": "curl -sf -m 2 -X DELETE localhost:4242/activity/claude-code >/dev/null 2>&1 || true"}]}]
-}
-```
+- `scripts/plum` wraps it for humans and scripts: `plum working "Deploying"`, `plum needs-input "Waiting on you"`, `plum done "Build finished"`, `plum clear`. Copy it into your PATH if you like it.
+- Made for the things that have no home: build scripts, deploys, renders, long downloads. The open island lists them attention-first (needs-input wears the accent); the closed pill never grows for any of it, and finished things fade on their own. Nothing posts unless you point it here.
 
 **Chat** (bring your own subscription)
 - A small built-in browser under the notch pointing at Claude, ChatGPT, or Gemini; pick the service in Settings.

@@ -569,7 +569,8 @@ final class ActionEngine {
                 words.contains("rain") ? .rain :
                 (words.contains("fire") || words.contains("fireplace")) ? .fire :
                 (words.contains("cafe") || lower.contains("coffee")) ? .cafe :
-                lower.contains("pink") ? .pink : .brown
+                lower.contains("pink") ? .pink :
+                lower.contains("white") ? .white : .brown
             model.ambience.play(color)
             switch color {
             case .rain: return "Rain on. Say stop noise when done."

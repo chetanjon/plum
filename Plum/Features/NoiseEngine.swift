@@ -54,10 +54,27 @@ final class NoiseEngine {
 
     // Filter state
     private var brownLast: Float = 0
-    private var pink0: Float = 0
-    private var pink1: Float = 0
-    private var pink2: Float = 0
+    // Refined Kellet pink (seven poles): the old economy filter left
+    // the top octave hissing, which read as harsh (user, 2026-07-23).
+    private var pinkB0: Float = 0
+    private var pinkB1: Float = 0
+    private var pinkB2: Float = 0
+    private var pinkB3: Float = 0
+    private var pinkB4: Float = 0
+    private var pinkB5: Float = 0
+    private var pinkB6: Float = 0
     private var whiteLast: Float = 0
+    // A gentle two-pole smoothing lowpass on the two synth colors that
+    // sounded harsh; brown lands warm (1.4 kHz), pink keeps more mid
+    // (2.4 kHz). Cascaded one-poles, so no resonance. Coefficients
+    // and make-up gains derived to hold the old loudness (RMS) while
+    // shedding ~15-23 dB of the top two octaves.
+    private var smoothA: Float = 0
+    private var smoothB: Float = 0
+    private static let brownAlpha: Float = 0.16745
+    private static let brownGain: Float = 1.0772
+    private static let pinkAlpha: Float = 0.26960
+    private static let pinkGain: Float = 0.1384
 
     private(set) var isRunning = false
 
@@ -404,17 +421,34 @@ final class NoiseEngine {
             whiteLast += 0.45 * (white - whiteLast)
             value = whiteLast * 0.8
         case .pink:
-            // Kellet economy pink filter
-            pink0 = 0.99765 * pink0 + white * 0.0990460
-            pink1 = 0.96300 * pink1 + white * 0.2965164
-            pink2 = 0.57000 * pink2 + white * 1.0526913
-            value = (pink0 + pink1 + pink2 + white * 0.1848) * 0.12
+            // Refined Kellet pink, then the smoothing lowpass.
+            pinkB0 = 0.99886 * pinkB0 + white * 0.0555179
+            pinkB1 = 0.99332 * pinkB1 + white * 0.0750759
+            pinkB2 = 0.96900 * pinkB2 + white * 0.1538520
+            pinkB3 = 0.86650 * pinkB3 + white * 0.3104856
+            pinkB4 = 0.55000 * pinkB4 + white * 0.5329522
+            pinkB5 = -0.7616 * pinkB5 - white * 0.0168980
+            let pink = pinkB0 + pinkB1 + pinkB2 + pinkB3
+                + pinkB4 + pinkB5 + pinkB6 + white * 0.5362
+            pinkB6 = white * 0.115926
+            value = smoothed(pink, alpha: Self.pinkAlpha) * Self.pinkGain
         case .brown:
             brownLast = (brownLast + 0.02 * white) / 1.02
-            value = brownLast * 3.2
+            value = smoothedBrown(brownLast * 3.2)
         case .rain, .fire, .cafe:
             value = 0
         }
         return max(-1, min(1, value)) * gain * synthVol
+    }
+
+    /// The shared two-pole smoothing lowpass, cascaded one-poles.
+    private func smoothed(_ input: Float, alpha: Float) -> Float {
+        smoothA += alpha * (input - smoothA)
+        smoothB += alpha * (smoothA - smoothB)
+        return smoothB
+    }
+
+    private func smoothedBrown(_ input: Float) -> Float {
+        smoothed(input, alpha: Self.brownAlpha) * Self.brownGain
     }
 }

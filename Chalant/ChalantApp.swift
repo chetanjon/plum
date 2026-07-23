@@ -48,25 +48,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Tiny menu bar item so the agent app can be quit
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        // The house mark, drawn by hand: the borrowed sparkles symbol
-        // read as another assistant's star (user, 2026-07-23).
+        // The house mark, drawn by hand: an arc sheltering a dot, the
+        // notch caring over its island. The plum it replaced belonged
+        // to a former name.
         let icon = NSImage(size: NSSize(width: 18, height: 18), flipped: false) { _ in
-            let body = NSBezierPath(
-                ovalIn: NSRect(x: 3.2, y: 1.4, width: 11.6, height: 10.8)
+            let arc = NSBezierPath()
+            arc.move(to: NSPoint(x: 2.8, y: 11.6))
+            arc.curve(
+                to: NSPoint(x: 15.2, y: 11.6),
+                controlPoint1: NSPoint(x: 5.4, y: 15.6),
+                controlPoint2: NSPoint(x: 12.6, y: 15.6)
+            )
+            arc.lineWidth = 2.0
+            arc.lineCapStyle = .round
+            NSColor.black.setStroke()
+            arc.stroke()
+            let dot = NSBezierPath(
+                ovalIn: NSRect(x: 6.2, y: 2.6, width: 5.6, height: 5.6)
             )
             NSColor.black.setFill()
-            body.fill()
-            let stem = NSBezierPath()
-            stem.move(to: NSPoint(x: 9.2, y: 12.4))
-            stem.curve(
-                to: NSPoint(x: 12.6, y: 16.4),
-                controlPoint1: NSPoint(x: 9.4, y: 14.4),
-                controlPoint2: NSPoint(x: 10.8, y: 15.9)
-            )
-            stem.lineWidth = 1.8
-            stem.lineCapStyle = .round
-            NSColor.black.setStroke()
-            stem.stroke()
+            dot.fill()
             return true
         }
         icon.isTemplate = true

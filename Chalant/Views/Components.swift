@@ -349,26 +349,32 @@ struct PressableStyle: ButtonStyle {
 /// around the icon, a tint lift and faint halo on hover, and a press
 /// sink. Every bare-glyph control in the app routes through this.
 
-/// The house mark: a small chalant, round body and a curved stem,
-/// drawn in whatever foreground style the context sets. It replaces
-/// the borrowed "sparkles" symbol, which read as another
-/// assistant's star (user, 2026-07-23).
+/// The house mark: a soft arc sheltering a small dot. The arc is the
+/// notch, the dot is the island in its care; together they are the
+/// name, calm over warmth. It replaced the plum (a fruit from a
+/// former name) the day the app became Chalant.
 struct ChalantMarkShape: Shape {
     func path(in rect: CGRect) -> Path {
         var p = Path()
         let d = min(rect.width, rect.height)
         let cx = rect.midX
-        p.addEllipse(in: CGRect(
-            x: cx - d * 0.40, y: rect.minY + d * 0.28,
-            width: d * 0.80, height: d * 0.72
-        ))
-        var stem = Path()
-        stem.move(to: CGPoint(x: cx + d * 0.02, y: rect.minY + d * 0.32))
-        stem.addQuadCurve(
-            to: CGPoint(x: cx + d * 0.32, y: rect.minY + d * 0.03),
-            control: CGPoint(x: cx + d * 0.05, y: rect.minY + d * 0.05)
+        let top = rect.minY
+        var band = Path()
+        band.move(to: CGPoint(x: cx - d * 0.46, y: top + d * 0.36))
+        band.addQuadCurve(
+            to: CGPoint(x: cx + d * 0.46, y: top + d * 0.36),
+            control: CGPoint(x: cx, y: top + d * 0.02)
         )
-        p.addPath(stem.strokedPath(StrokeStyle(lineWidth: d * 0.12, lineCap: .round)))
+        band.addQuadCurve(
+            to: CGPoint(x: cx - d * 0.46, y: top + d * 0.36),
+            control: CGPoint(x: cx, y: top + d * 0.26)
+        )
+        band.closeSubpath()
+        p.addPath(band)
+        p.addEllipse(in: CGRect(
+            x: cx - d * 0.155, y: top + d * 0.525,
+            width: d * 0.31, height: d * 0.31
+        ))
         return p
     }
 }

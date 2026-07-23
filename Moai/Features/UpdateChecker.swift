@@ -67,7 +67,10 @@ final class UpdateChecker: ObservableObject {
     /// and bullet notes, fetched on ask. Same endpoint as the daily
     /// check, so the network learns nothing it didn't already hear.
     func latestNotes() async -> String? {
-        var request = URLRequest(url: releasesAPI)
+        // Bounded: the caller holds isWorking while awaiting, and
+        // isWorking gates input and hover-collapse; an unanswered
+        // fetch must never wedge the island (review-caught).
+        var request = URLRequest(url: releasesAPI, timeoutInterval: 8)
         request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
         guard let (data, _) = try? await URLSession.shared.data(for: request),
               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],

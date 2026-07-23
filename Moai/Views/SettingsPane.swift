@@ -183,8 +183,8 @@ struct SettingsPane: View {
                         .font(Theme.Fonts.caption)
                         .foregroundStyle(Theme.textHint)
                     divider
-                    toggleRow("Countdown beside the notch", $glanceSession)
-                    Text("Off, a running focus or timer keeps the pill bare; the rim alone says something is going.")
+                    toggleRow("Session mark beside the notch", $glanceSession)
+                    Text("The small ring or stopwatch glyph while something runs. Off keeps the pill bare; the rim alone says something is going.")
                         .font(Theme.Fonts.caption)
                         .foregroundStyle(Theme.textHint)
                     divider

@@ -32,21 +32,40 @@ final class MessageCourier {
     /// "mom on my way", "john smith: running late", "5551234567 hi".
     /// The name ends where a said separator puts it, or where the
     /// address book stops recognizing; the rest is the message.
+    /// Separators only count NEAR THE FRONT: a comma or "that" deep
+    /// inside the message is punctuation, not a boundary (review-
+    /// caught: "text mom running late, see you soon" once died on
+    /// its own comma), and a front separator whose left side isn't
+    /// in Contacts falls through to the token walk instead of
+    /// giving up.
     func stage(freeform rest: String) async -> String {
         pending = nil
-        let trimmed = rest.trimmingCharacters(in: .whitespaces)
+        var trimmed = rest.trimmingCharacters(in: .whitespaces)
+        for lead in ["to "] where trimmed.lowercased().hasPrefix(lead) {
+            trimmed = String(trimmed.dropFirst(lead.count))
+                .trimmingCharacters(in: .whitespaces)
+        }
         guard !trimmed.isEmpty else { return "Text who?" }
 
-        // A said separator makes the split explicit: "text mom that
-        // i'm running late". Earliest occurrence wins.
+        // An explicit separator in name position: at most three
+        // words may sit left of it for it to mean "here ends who".
         let separators = [": ", " that ", " saying ", " to say ", ", "]
         let cut = separators
             .compactMap { trimmed.range(of: $0, options: .caseInsensitive) }
             .min { $0.lowerBound < $1.lowerBound }
         if let cut {
             let who = String(trimmed[..<cut.lowerBound])
-            let what = String(trimmed[cut.upperBound...])
-            return await stage(recipient: who, body: what)
+                .trimmingCharacters(in: .whitespaces)
+            let whoTokens = who.split(separator: " ").count
+            if whoTokens <= 3 {
+                let what = String(trimmed[cut.upperBound...])
+                let answer = await stage(recipient: who, body: what)
+                // A failed front-split is not the end: the walk
+                // below may still find the name.
+                if pending != nil || !answer.hasPrefix("No one called") {
+                    return answer
+                }
+            }
         }
 
         let tokens = trimmed.split(separator: " ").map(String.init)
@@ -60,19 +79,22 @@ final class MessageCourier {
             )
         }
 
-        // No separator: the address book decides where the name ends.
-        // Longest candidate first, so "mary jane meet me" reaches
-        // Mary Jane and not a Mary with a strange message.
-        guard tokens.count >= 2 else {
-            return "Text \(trimmed.capitalized) what?"
-        }
+        // The address book decides where the name ends. Longest
+        // candidate first, so "mary jane meet me" reaches Mary Jane
+        // and not a Mary with a strange message; the whole utterance
+        // is a fair candidate too ("text mary jane" is a name and a
+        // missing message, not Mary and the word jane).
         if let gate = contactsGate() { return gate }
         var ambiguous: [String]?
-        for length in stride(from: min(3, tokens.count - 1), through: 1, by: -1) {
+        for length in stride(from: min(3, tokens.count), through: 1, by: -1) {
             let candidate = tokens.prefix(length).joined(separator: " ")
             switch await Self.resolve(candidate) {
             case .one(let name, let handle):
                 let body = tokens.dropFirst(length).joined(separator: " ")
+                    .trimmingCharacters(in: .whitespaces)
+                guard !body.isEmpty else {
+                    return "Text \(name) what? Say it in one line: text \(name.lowercased()), then the words."
+                }
                 pending = Pending(name: name, handle: handle, body: body, staged: Date())
                 primeMessagesGrant()
                 return readBack()
@@ -80,13 +102,15 @@ final class MessageCourier {
                 ambiguous = names
             case .denied:
                 return "Moai can't read Contacts. System Settings, Privacy and Security, Contacts. Or text the number itself."
+            case .failed:
+                return "Contacts didn't answer. Say it again in a moment."
             default:
                 continue
             }
         }
         if let ambiguous {
             let list = ambiguous.prefix(3).joined(separator: " · ")
-            return "Which one? \(list). Say the fuller name."
+            return "Which one? \(list). Say text and the fuller name."
         }
         return "No one called \"\(tokens[0])\" in Contacts. A number or email works too."
     }
@@ -101,7 +125,9 @@ final class MessageCourier {
         }
         let what = body.trimmingCharacters(in: .whitespaces)
         guard !who.isEmpty else { return "Text who?" }
-        guard !what.isEmpty else { return "Text \(who.capitalized) what?" }
+        guard !what.isEmpty else {
+            return "Text \(who.capitalized) what? Say it in one line: text \(who.lowercased()), then the words."
+        }
 
         if let literal = Self.literalHandle(who) {
             pending = Pending(name: who, handle: literal, body: what, staged: Date())
@@ -117,7 +143,9 @@ final class MessageCourier {
             return "Moai can't read Contacts. System Settings, Privacy and Security, Contacts. Or text the number itself."
         case .many(let names):
             let list = names.prefix(3).joined(separator: " · ")
-            return "Which one? \(list). Say the fuller name."
+            return "Which one? \(list). Say text and the fuller name."
+        case .failed:
+            return "Contacts didn't answer. Say it again in a moment."
         case .one(let name, let handle):
             pending = Pending(name: name, handle: handle, body: what, staged: Date())
             primeMessagesGrant()
@@ -179,13 +207,14 @@ final class MessageCourier {
             primeMessagesGrant()
             return "macOS is asking to let Moai use Messages. Click Allow, then say send."
         case -1743:
-            pending = nil
-            return "macOS blocked Moai from Messages. System Settings, Privacy and Security, Automation, then try again."
+            return "macOS blocked Moai from Messages. System Settings, Privacy and Security, Automation, then say send again."
         default:
             break
         }
 
-        pending = nil
+        // The message stays staged until it actually leaves: every
+        // failure below invites a retry, and a retry with nothing
+        // staged was a lie the review caught. Success alone clears.
         let script = """
         tell application "Messages"
             set targetService to 1st account whose service type = iMessage
@@ -193,14 +222,17 @@ final class MessageCourier {
         end tell
         """
         let error = await Self.runScript(script)
-        guard let error else { return "Sent to \(message.name)." }
+        guard let error else {
+            pending = nil
+            return "Sent to \(message.name)."
+        }
         if error.contains("-1743") {
-            return "macOS blocked Moai from Messages. System Settings, Privacy and Security, Automation, then try again."
+            return "macOS blocked Moai from Messages. System Settings, Privacy and Security, Automation, then say send again."
         }
         if error.contains("service type") || error.contains("account") {
-            return "Messages isn't signed in to iMessage on this Mac."
+            return "Messages isn't signed in to iMessage on this Mac. It holds; say send once that's fixed."
         }
-        return "Messages balked: \(error)"
+        return "Messages balked: \(error). It holds; say send to try again."
     }
 
     /// Runs on the script lane; returns nil on success, the error
@@ -231,6 +263,7 @@ final class MessageCourier {
     private enum Resolution {
         case none
         case denied
+        case failed
         case one(name: String, handle: String)
         case many([String])
     }
@@ -275,18 +308,25 @@ final class MessageCourier {
             var exactGiven: [CNContact] = []
             var exactFull: [CNContact] = []
             var prefixFull: [CNContact] = []
-            try? store.enumerateContacts(with: request) { contact, _ in
-                let full = "\(contact.givenName) \(contact.familyName)"
-                    .trimmingCharacters(in: .whitespaces).lowercased()
-                if contact.nickname.lowercased() == wanted {
-                    exactNick.append(contact)
-                } else if contact.givenName.lowercased() == wanted {
-                    exactGiven.append(contact)
-                } else if full == wanted {
-                    exactFull.append(contact)
-                } else if full.hasPrefix(wanted), !wanted.isEmpty {
-                    prefixFull.append(contact)
+            do {
+                try store.enumerateContacts(with: request) { contact, _ in
+                    let full = "\(contact.givenName) \(contact.familyName)"
+                        .trimmingCharacters(in: .whitespaces).lowercased()
+                    if contact.nickname.lowercased() == wanted {
+                        exactNick.append(contact)
+                    } else if contact.givenName.lowercased() == wanted {
+                        exactGiven.append(contact)
+                    } else if full == wanted {
+                        exactFull.append(contact)
+                    } else if full.hasPrefix(wanted), !wanted.isEmpty {
+                        prefixFull.append(contact)
+                    }
                 }
+            } catch {
+                // A fetch that THREW is not an empty address book;
+                // saying "no one called mom" over a transient error
+                // was a lie (review-caught).
+                return .failed
             }
             let tier = [exactNick, exactGiven, exactFull, prefixFull]
                 .first { !$0.isEmpty } ?? []

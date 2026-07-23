@@ -71,6 +71,20 @@ struct ExpandedView: View {
                 }
                 .transition(.opacity)
             }
+            // A stopwatch running BESIDE a focus or timer session gets
+            // its own strip; it used to run invisibly behind their
+            // precedence with no control anywhere (review-caught).
+            if stopwatch.isActive, focus.isActive || timer.isActive {
+                SessionStrip(
+                    kind: .stopwatch,
+                    focus: focus,
+                    timer: timer,
+                    stopwatch: stopwatch
+                ) {
+                    withAnimation(Theme.Motion.content) { model.tab = .focus }
+                }
+                .transition(.opacity)
+            }
 
             topRow
 

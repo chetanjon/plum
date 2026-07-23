@@ -21,28 +21,53 @@ final class ActionEngine {
         let text = Self.strippedOfPleasantries(Self.sanitized(raw))
         let lower = text.lowercased().trimmingCharacters(in: .whitespaces)
 
-        // A staged message answers before anything else: "send" fires
-        // it, a refusal drops it, and any other command drops it on
-        // the way through. Nothing said later can become a text by
-        // accident, and nothing staged outlives the conversation.
+        // A staged message answers before anything else. The contract
+        // read back to the user is "say send, or anything else to
+        // drop it", and the gate holds it literally: an utterance
+        // whose words include "send" without a negation fires it
+        // ("send", "yes send it", "okay send that"); everything else
+        // drops it. Bare "yes" is NOT consent for an outward message;
+        // it once was, and that was a sent-unconfirmed bug waiting.
         if model.courier.pending != nil {
-            if ["send", "send it", "yes", "yes send", "yep", "ship it"].contains(lower) {
+            let words = Set(lower.split(separator: " ").map {
+                $0.trimmingCharacters(in: CharacterSet(charactersIn: ",."))
+            })
+            let negated = ["don't", "dont", "not", "never", "no"]
+                .contains(where: words.contains)
+            if words.contains("send"), !negated {
                 model.isWorking = true
                 let outcome = await model.courier.confirmSend()
                 model.isWorking = false
                 return outcome
             }
-            if ["cancel", "don't send", "dont send", "no", "drop it",
-                "never mind", "nevermind"].contains(lower) {
-                model.courier.drop()
+            model.courier.drop()
+            if ["cancel", "don't send", "dont send", "do not send", "no",
+                "drop it", "never mind", "nevermind"].contains(lower) {
                 return "Dropped."
             }
-            model.courier.drop()
+            // Any other command drops it silently on the way through.
         } else if ["send", "send it"].contains(lower) {
             return "Nothing staged to send."
         } else if ["cancel", "never mind", "nevermind"].contains(lower) {
-            // Bare refusals with nothing staged should cost nothing;
-            // they were wandering to the model and back.
+            // Bare "cancel" reaches for whatever is running before it
+            // admits there is nothing; it used to say "Nothing to
+            // cancel." over a live timer.
+            if model.timer.isActive {
+                model.timer.stop()
+                return "Timer off."
+            }
+            if model.focus.isActive {
+                model.focus.stop()
+                return "Focus off."
+            }
+            if model.stopwatch.isActive {
+                model.stopwatch.reset()
+                return "Stopwatch cleared."
+            }
+            if model.ambience.active != nil {
+                model.ambience.stop()
+                return "Quiet."
+            }
             return "Nothing to cancel."
         }
 
@@ -293,13 +318,25 @@ final class ActionEngine {
 
         // Texting: the one verb whose words leave the Mac, so it
         // stages and reads back instead of firing; the send happens
-        // when the next thing said is "send".
+        // when the next thing said is "send". The body is sliced
+        // from the RAW input, not the sanitized copy: sanitize
+        // strips trailing punctuation and pleasantries, and a
+        // message that promises word-for-word must keep its "?",
+        // its comma, and its "thank you" (review-caught: "text mom:
+        // thank you" used to lose its entire body).
         for prefix in ["text ", "imessage ", "i message ", "message ",
                        "send a message to ", "send a text to ",
                        "send an imessage to ", "send a text message to "]
         where lower.hasPrefix(prefix) {
-            let rest = String(text.dropFirst(prefix.count))
-                .trimmingCharacters(in: .whitespaces)
+            let rawTrimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+            let rest: String
+            if let range = rawTrimmed.range(of: prefix, options: .caseInsensitive) {
+                rest = String(rawTrimmed[range.upperBound...])
+                    .trimmingCharacters(in: .whitespaces)
+            } else {
+                rest = String(text.dropFirst(prefix.count))
+                    .trimmingCharacters(in: .whitespaces)
+            }
             guard !rest.isEmpty else { return "Text who?" }
             model.isWorking = true
             let outcome = await model.courier.stage(freeform: rest)

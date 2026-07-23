@@ -41,7 +41,7 @@ First open: macOS will ask once. System Settings, Privacy and Security, Open Any
 - Whatever plays, anywhere: Spotify, Apple Music, YouTube in a browser, any app the system hears. While playing, a small wave dances beside the notch (or nothing, in Quiet mode) and a breathing album-color rim carries the signal; expand for artwork, transport, and scrubbing. Wave, rim, and the session mark each have their own switch in Settings, so the closed pill can be exactly as bare as you like.
 - With music and a session running together, the wave keeps the left wing and the session mark crosses to the right.
 - The opened island comes in two materials, ink or liquid glass, in Settings under Life. Closed, it is always ink; melting into the notch is its job.
-- On a notchless monitor the collapsed island shows nothing at all; the top edge still opens it on hover. Pixels over someone's window need a reason to exist.
+- On a notchless monitor the collapsed island shows nothing at rest; the top edge still opens it on hover. Two things count as a reason to exist and surface briefly: a passing toast (a timer finishing, an update landing) and an agent that needs your input.
 
 **Clips** (clipboard history)
 - Last 30 copies. Password-manager copies (concealed/transient) never stored.

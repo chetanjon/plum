@@ -151,14 +151,20 @@ struct NotchRootView: View {
         !model.hasPhysicalNotch && monitorContentWidth == 0
     }
 
-    /// On a monitor the collapsed island shows NOTHING at all: there
-    /// is no hardware to dress and every pixel it wore sat on top of
+    /// On a monitor the collapsed island shows nothing: there is no
+    /// hardware to dress and every pixel it wore sat on top of
     /// someone's window (user, 2026-07-22, "we can't show anything on
     /// external monitors"). The hover zone is coordinate math, not
-    /// pixels, so the top edge still summons the island; it just
-    /// keeps no body between visits.
+    /// pixels, so the top edge still summons the island. Two
+    /// exceptions surface anyway, because a signal nobody can see is
+    /// not a signal (review-caught): a glance toast lives six seconds
+    /// and clears itself, and a needs-input agent is literally asking
+    /// for the user. Idle, music, and running sessions stay hidden.
     private var monitorTucked: Bool {
-        !model.hasPhysicalNotch && model.state == .collapsed
+        guard !model.hasPhysicalNotch, model.state == .collapsed else { return false }
+        if model.glanceToast != nil { return false }
+        if activities.glanceActivity?.state == .needsInput { return false }
+        return true
     }
 
     /// Stable per-state sizes: content is framed to its own state's

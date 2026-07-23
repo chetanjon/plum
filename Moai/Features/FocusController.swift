@@ -51,28 +51,43 @@ final class CountdownController: ObservableObject {
 /// A real stopwatch, not a timer in disguise: stop HOLDS the reading
 /// on screen, start rolls again from where it stood, and only reset
 /// clears it (user, 2026-07-22, "that's a timer not a stopwatch").
+/// Time is measured against the wall clock, not tick counts: a Mac
+/// that sleeps mid-run still owes the truth on wake (review-caught;
+/// counted ticks silently lost every slept second).
 @MainActor
 final class StopwatchController: ObservableObject {
-    @Published var elapsed = 0
     /// Visible somewhere: running, or paused with its reading held.
     @Published var isActive = false
     @Published var isRunning = false
+    /// UI heartbeat; the reading itself derives from dates.
+    @Published private var tick = 0
+    private var anchor: Date?
+    private var banked = 0
     private var timer: Timer?
+
+    var elapsed: Int {
+        banked + (anchor.map { max(0, Int(Date().timeIntervalSince($0))) } ?? 0)
+    }
 
     /// Fresh start from idle; resume from a pause.
     func start() {
-        if !isActive { elapsed = 0 }
+        if !isActive { banked = 0 }
+        anchor = Date()
         isActive = true
         isRunning = true
         timer?.invalidate()
-        timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
-            Task { @MainActor in self?.elapsed += 1 }
+        let timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
+            Task { @MainActor in self?.tick += 1 }
         }
+        timer.tolerance = 0.1
+        self.timer = timer
     }
 
     /// Freeze and hand back the reading; the reading stays on screen.
     @discardableResult
     func pause() -> String {
+        banked = elapsed
+        anchor = nil
         timer?.invalidate()
         timer = nil
         isRunning = false
@@ -84,13 +99,15 @@ final class StopwatchController: ObservableObject {
         timer = nil
         isActive = false
         isRunning = false
-        elapsed = 0
+        anchor = nil
+        banked = 0
     }
 
     var display: String {
-        let hours = elapsed / 3600
-        let minutes = (elapsed % 3600) / 60
-        let seconds = elapsed % 60
+        let total = elapsed
+        let hours = total / 3600
+        let minutes = (total % 3600) / 60
+        let seconds = total % 60
         return hours > 0
             ? String(format: "%d:%02d:%02d", hours, minutes, seconds)
             : String(format: "%d:%02d", minutes, seconds)

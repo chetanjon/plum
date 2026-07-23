@@ -158,8 +158,7 @@ struct NotchRootView: View {
     /// the one visitor with something to say.
     private var monitorTucked: Bool {
         guard !model.hasPhysicalNotch, model.state == .collapsed else { return false }
-        if model.glanceToast != nil { return false }
-        return !idleEdgeOn
+        return model.glanceToast == nil
     }
 
     /// Stable per-state sizes: content is framed to its own state's

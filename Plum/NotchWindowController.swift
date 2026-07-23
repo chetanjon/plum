@@ -398,10 +398,15 @@ final class NotchWindowController {
 
     func rebuildSlivers() {
         let wantsEdge = UserDefaults.standard.object(forKey: "idleEdgeOn") as? Bool ?? true
-        let islandID = notchScreen?.displayID
+        // The bead is the ONLY resting visual on a notchless display;
+        // the island itself stays invisible there until it blooms, so
+        // hover never jump-cuts between two shapes (user, 2026-07-23,
+        // photo of the handoff). The bead yields only while the
+        // island is actually open on that display.
+        let openID = viewModel.state == .collapsed ? nil : notchScreen?.displayID
         let targets = wantsEdge
             ? NSScreen.screens.filter {
-                $0.safeAreaInsets.top == 0 && $0.displayID != islandID
+                $0.safeAreaInsets.top == 0 && $0.displayID != openID
             }
             : []
         let signature = targets
@@ -412,7 +417,7 @@ final class NotchWindowController {
         sliverPanels.forEach { $0.orderOut(nil) }
         sliverPanels.removeAll()
         for screen in targets {
-            let width: CGFloat = 90, height: CGFloat = 9
+            let width: CGFloat = 84, height: CGFloat = 7
             let frame = NSRect(
                 x: screen.frame.midX - width / 2,
                 y: screen.frame.maxY - height,
@@ -630,6 +635,9 @@ final class NotchWindowController {
     private func stateChanged(_ newState: NotchViewModel.IslandState) {
         openIntentWork?.cancel()
         openIntentWork = nil
+        // The bead yields while the island is open on its display and
+        // returns when it closes; signature-guarded, so cheap here.
+        rebuildSlivers()
         // The light never survives a state morph; it fades back in on
         // the next poll if the pointer is still there.
         viewModel.pointerUnit = nil
@@ -720,8 +728,8 @@ private struct SliverBead: Shape {
         p.addLine(to: CGPoint(x: rect.maxX, y: 0))
         p.addCurve(
             to: .zero,
-            control1: CGPoint(x: rect.maxX * 0.72, y: rect.maxY * 1.3),
-            control2: CGPoint(x: rect.maxX * 0.28, y: rect.maxY * 1.3)
+            control1: CGPoint(x: rect.maxX * 0.68, y: rect.maxY * 1.1),
+            control2: CGPoint(x: rect.maxX * 0.32, y: rect.maxY * 1.1)
         )
         p.closeSubpath()
         return p
@@ -736,8 +744,8 @@ private struct SliverBeadEdge: Shape {
         p.move(to: CGPoint(x: rect.maxX, y: 0))
         p.addCurve(
             to: .zero,
-            control1: CGPoint(x: rect.maxX * 0.72, y: rect.maxY * 1.3),
-            control2: CGPoint(x: rect.maxX * 0.28, y: rect.maxY * 1.3)
+            control1: CGPoint(x: rect.maxX * 0.68, y: rect.maxY * 1.1),
+            control2: CGPoint(x: rect.maxX * 0.32, y: rect.maxY * 1.1)
         )
         return p
     }

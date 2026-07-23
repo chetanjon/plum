@@ -19,7 +19,10 @@ case "${1:-}" in
     STATE="$1"
     TITLE="${2:?usage: plum $1 \"title\" [id]}"
     ID="${3:-cli}"
-    curl -sf "$BASE/activity" -d "{\"id\":\"$ID\",\"title\":\"$TITLE\",\"state\":\"$STATE\"}" >/dev/null
+    # Escape backslashes and quotes so a title with either still forms
+    # valid JSON instead of a silently-dropped 400.
+    esc() { printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'; }
+    curl -sf "$BASE/activity" -d "{\"id\":\"$(esc "$ID")\",\"title\":\"$(esc "$TITLE")\",\"state\":\"$STATE\"}" >/dev/null
     echo "on the island: [$STATE] $TITLE"
     ;;
   clear)

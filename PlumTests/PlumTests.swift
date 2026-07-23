@@ -365,6 +365,30 @@ final class PlumTests: XCTestCase {
         XCTAssertFalse(ActionEngine.pauseForms.contains("stop noise"))
     }
 
+    // MARK: Review-caught regressions (R140)
+
+    func testSessionQuestionNeverStartsASession() {
+        // "how much time left on the timer" once fell past the exact
+        // readback set into the timer creator and RESTARTED it.
+        XCTAssertTrue(ActionEngine.isSessionQuestion("how much time left on the timer"))
+        XCTAssertTrue(ActionEngine.isSessionQuestion("how long on the timer"))
+        XCTAssertTrue(ActionEngine.isSessionQuestion("what's on the stopwatch"))
+        XCTAssertTrue(ActionEngine.isSessionQuestion("is the timer still going"))
+        // Commands to START are not questions.
+        XCTAssertFalse(ActionEngine.isSessionQuestion("timer 10"))
+        XCTAssertFalse(ActionEngine.isSessionQuestion("set a timer for 5"))
+        XCTAssertFalse(ActionEngine.isSessionQuestion("start a focus"))
+    }
+
+    func testVolumeTargetBeatsDirectionWord() {
+        // "volume up to 80" means 80, not one step up.
+        XCTAssertEqual(ActionEngine.volumeIntent("volume up to 80"), .set(80))
+        XCTAssertEqual(ActionEngine.volumeIntent("turn the volume up to 30"), .set(30))
+        // Bare direction still steps.
+        XCTAssertEqual(ActionEngine.volumeIntent("volume up"), .up)
+        XCTAssertEqual(ActionEngine.volumeIntent("turn the volume down"), .down)
+    }
+
     func testTextingPrefixTellGuard() {
         // "tell amma i am on my way" is how people say it; "tell me"
         // stays a question, and the space keeps "tell melissa" a

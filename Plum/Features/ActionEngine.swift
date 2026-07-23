@@ -531,18 +531,32 @@ final class ActionEngine {
             return WindowSnapper.snap(.center)
         }
 
+        // A question about a session never starts one. The readback
+        // sets above catch the enumerated forms; this guard catches
+        // the rest ("how much time left on the timer" once fell
+        // through and RESTARTED the timer at 5:00, review-caught).
+        let asksAboutSession = Self.isSessionQuestion(lower)
+
         // Focus sessions
-        if lower.contains("pomodoro") || lower.hasPrefix("focus") {
+        if !asksAboutSession, lower.contains("pomodoro") || lower.hasPrefix("focus") {
             let minutes = Self.firstNumber(in: lower) ?? 25
             model.focus.start(work: minutes)
             return "Focus on. \(minutes) minutes, brown noise. Say stop focus to end."
         }
 
         // Plain timers
-        if lower.contains("timer") {
+        if !asksAboutSession, lower.contains("timer") {
             let minutes = Self.firstNumber(in: lower) ?? 5
             model.timer.start(minutes: minutes)
             return "Timer on. \(minutes) minutes, counting in the notch."
+        }
+        // A bare session question that named no running session falls
+        // to here, so it reads the truth instead of the void model.
+        if asksAboutSession {
+            return Self.timeLeftLine(
+                timer: model.timer.isActive ? model.timer.display : nil,
+                focus: model.focus.isActive ? Self.clock(model.focus.remaining) : nil,
+                stopwatch: model.stopwatch.isActive ? model.stopwatch.display : nil)
         }
 
         // Standalone ambience. Token match for rain/cafe so "training"
@@ -825,6 +839,20 @@ final class ActionEngine {
         String(format: "%d:%02d", seconds / 60, seconds % 60)
     }
 
+    /// A question about a running session, not a command to start
+    /// one: a leading question word paired with a session noun, so
+    /// "how much time left on the timer" reads instead of restarting.
+    /// "set a timer"/"start a timer"/"timer 10" are not questions.
+    static func isSessionQuestion(_ lower: String) -> Bool {
+        let leaders = ["how ", "what", "when", "is ", "does ", "how's ",
+                       "hows ", "check "]
+        guard leaders.contains(where: { lower.hasPrefix($0) }) else { return false }
+        return lower.contains("timer") || lower.contains("stopwatch")
+            || lower.contains("focus") || lower.contains("time left")
+            || lower.contains("time remaining") || lower.contains("how long")
+            || lower.contains("how much longer")
+    }
+
     enum VolumeIntent: Equatable {
         case up
         case down
@@ -842,16 +870,22 @@ final class ActionEngine {
                 .map(String.init)
         )
         if words.contains("volume") {
+            // An explicit target wins over a bare direction word:
+            // "volume up to 80" means 80, not one step up (the
+            // direction check used to swallow it, review-caught). A
+            // number reads as a target when it follows "to"/a set-word
+            // or the phrase leads with "volume".
+            if let number = Self.firstNumber(in: lower),
+               (0...100).contains(number),
+               lower.hasPrefix("volume")
+                || lower.contains(" to ")
+                || !words.isDisjoint(with: ["set", "put", "make"]) {
+                return .set(number)
+            }
             if !words.isDisjoint(with: ["up", "raise", "louder", "higher",
                                         "increase", "boost"]) { return .up }
             if !words.isDisjoint(with: ["down", "lower", "quieter", "softer",
                                         "decrease", "reduce"]) { return .down }
-            if let number = Self.firstNumber(in: lower),
-               (0...100).contains(number),
-               lower.hasPrefix("volume")
-                || !words.isDisjoint(with: ["set", "put", "make"]) {
-                return .set(number)
-            }
         }
         if ["volume", "what's the volume", "whats the volume", "volume level",
             "current volume", "how loud", "how loud is it"].contains(lower) {

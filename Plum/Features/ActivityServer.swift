@@ -48,6 +48,13 @@ final class ActivityServer: @unchecked Sendable {
 
     private func handle(_ connection: NWConnection) {
         connection.start(queue: queue)
+        // A client that opens a socket and never finishes its header
+        // block would pin the connection and its buffer forever
+        // (review-caught). Five seconds is a lifetime for a loopback
+        // request of a few hundred bytes.
+        queue.asyncAfter(deadline: .now() + 5) { [weak connection] in
+            connection?.cancel()
+        }
         receive(connection, buffer: Data())
     }
 
@@ -89,9 +96,19 @@ final class ActivityServer: @unchecked Sendable {
         let lines = head.components(separatedBy: "\r\n")
         let parts = lines.first?.components(separatedBy: " ") ?? []
         guard parts.count >= 2 else { return nil }
+        // A header carries at most one value; splitting on the FIRST
+        // colon and taking the tail is crash-proof where index [1] was
+        // not: "Content-Length:" with an empty value once trapped and
+        // took the whole app down (review-caught, reproduced). A
+        // missing or unparseable value reads as zero.
         let contentLength = lines
             .first { $0.lowercased().hasPrefix("content-length:") }
-            .flatMap { Int($0.split(separator: ":")[1].trimmingCharacters(in: .whitespaces)) } ?? 0
+            .flatMap { line -> Int? in
+                guard let colon = line.firstIndex(of: ":") else { return nil }
+                let value = line[line.index(after: colon)...]
+                    .trimmingCharacters(in: .whitespaces)
+                return Int(value)
+            } ?? 0
         let body = data[headerEnd.upperBound...]
         guard body.count >= contentLength else { return nil }
         return Request(method: parts[0], path: parts[1], body: Data(body.prefix(contentLength)))

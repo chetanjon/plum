@@ -104,6 +104,7 @@ final class NotchWindowController {
     private var clickMonitor: Any?
     private var hoverTimer: Timer?
     private var stateSub: AnyCancellable?
+    private var toastSub: AnyCancellable?
     private var napActivity: NSObjectProtocol?
     private var pointerInside = false
     /// Drag-in-flight sensing: the drag pasteboard's changeCount moves
@@ -325,6 +326,11 @@ final class NotchWindowController {
         ) { [weak self] _ in
             Task { @MainActor in self?.rebuildSlivers() }
         }
+        // A toast appearing on a notchless display must pull that
+        // display's bead so the two don't overlap.
+        toastSub = viewModel.$glanceToast.sink { [weak self] _ in
+            Task { @MainActor in self?.rebuildSlivers() }
+        }
         rebuildSlivers()
     }
 
@@ -345,6 +351,13 @@ final class NotchWindowController {
             repositionRetry = retry
             DispatchQueue.main.asyncAfter(deadline: .now() + 1, execute: retry)
             return
+        }
+        // A visited display that vanished takes its travel with it;
+        // otherwise replugging it would teleport an open island back
+        // mid-use (review-caught).
+        if let id = travelDisplayID,
+           !NSScreen.screens.contains(where: { $0.displayID == id }) {
+            travelDisplayID = nil
         }
         let hadNotch = viewModel.hasPhysicalNotch
         let hadSize = viewModel.notchSize
@@ -403,10 +416,16 @@ final class NotchWindowController {
         // hover never jump-cuts between two shapes (user, 2026-07-23,
         // photo of the handoff). The bead yields only while the
         // island is actually open on that display.
-        let openID = viewModel.state == .collapsed ? nil : notchScreen?.displayID
+        // The island's own display yields its bead while it is showing
+        // anything there: an open island, or a six-second toast (a
+        // toast renders real content in the collapsed pill and the
+        // bead would sit over its text, review-caught).
+        let showingContent = viewModel.state != .collapsed
+            || viewModel.glanceToast != nil
+        let contentID = showingContent ? notchScreen?.displayID : nil
         let targets = wantsEdge
             ? NSScreen.screens.filter {
-                $0.safeAreaInsets.top == 0 && $0.displayID != openID
+                $0.safeAreaInsets.top == 0 && $0.displayID != contentID
             }
             : []
         let signature = targets
@@ -417,7 +436,12 @@ final class NotchWindowController {
         sliverPanels.forEach { $0.orderOut(nil) }
         sliverPanels.removeAll()
         for screen in targets {
-            let width: CGFloat = 100, height: CGFloat = 13
+            // The panel is larger than the bead so IslandShape's eave
+            // flare and belly, which draw beyond the shape's own rect,
+            // are not clipped into a squared lozenge (review-caught;
+            // the source of three rounds of "it looks wrong"). The
+            // bead is centered inside this room by SliverHint.
+            let width: CGFloat = 116, height: CGFloat = 20
             let frame = NSRect(
                 x: screen.frame.midX - width / 2,
                 y: screen.frame.maxY - height,
@@ -449,28 +473,37 @@ final class NotchWindowController {
         senseDrag(at: location, on: screen)
         switch viewModel.state {
         case .collapsed:
-            // Any display's top edge is a door: hovering a screen the
-            // island is not on brings it there before the dwell runs.
+            // Any display's top edge is a door. Travel is deferred to
+            // the dwell (below): a bare sweep through a monitor's top
+            // band must NOT relocate the island, or it strands itself
+            // invisible there with no walk-home ever armed
+            // (review-caught). The relocation happens only once intent
+            // is confirmed, paired with the open that guarantees a
+            // later collapse and walk-home.
             let hit = NSScreen.screens.first {
                 collapsedZone(on: $0).contains(location)
             }
             publishPointerUnit(location, zone: collapsedZone(on: hit ?? screen))
             if let hit {
-                if hit.displayID != screen.displayID {
-                    travel(to: hit)
-                }
-                // Level-triggered on entry: presence in the zone is enough.
-                // No stale-flag path may block a fresh hover from opening.
+                let hitID = hit.displayID
                 guard Date().timeIntervalSince(lastCollapseAt) > reopenCooldown,
                       openIntentWork == nil else { return }
                 let work = DispatchWorkItem { [weak self] in
                     guard let self else { return }
                     self.openIntentWork = nil
                     // Still there after the dwell, still collapsed?
+                    // Rechecked against the HIT display, since travel
+                    // has not happened yet.
                     guard self.viewModel.state == .collapsed,
-                          let screen = self.notchScreen,
-                          self.collapsedZone(on: screen).contains(NSEvent.mouseLocation)
+                          let hitScreen = NSScreen.screens
+                              .first(where: { $0.displayID == hitID }),
+                          self.collapsedZone(on: hitScreen)
+                              .contains(NSEvent.mouseLocation)
                     else { return }
+                    // Intent confirmed: bring the island here, then open.
+                    if hitID != self.notchScreen?.displayID {
+                        self.travel(to: hitScreen)
+                    }
                     self.lastOpenAt = Date()
                     self.viewModel.hoverChanged(true)
                 }
@@ -479,7 +512,12 @@ final class NotchWindowController {
             } else {
                 openIntentWork?.cancel()
                 openIntentWork = nil
-                if pointerInside {
+                // Clear the hover even when we never marked pointerInside:
+                // with "Open on hover" off, the dwell set isHovering
+                // true without expanding, and gating the clear on
+                // pointerInside latched the pill grown forever
+                // (review-caught).
+                if pointerInside || viewModel.isHovering {
                     pointerInside = false
                     viewModel.hoverChanged(false)
                 }
@@ -646,11 +684,17 @@ final class NotchWindowController {
             pointerInside = false
             lastCollapseAt = Date()
             // A visiting island walks home once it has settled, unless
-            // the cursor pulls it somewhere first.
+            // the cursor is still on the visited door (re-hovering it
+            // must not yank the island out from under the pointer,
+            // review-caught).
             if travelDisplayID != nil {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { [weak self] in
                     guard let self, self.viewModel.state == .collapsed,
                           self.travelDisplayID != nil else { return }
+                    if let here = self.notchScreen,
+                       self.collapsedZone(on: here).contains(NSEvent.mouseLocation) {
+                        return
+                    }
                     self.travelDisplayID = nil
                     self.reposition()
                     self.rebuildSlivers()
@@ -670,10 +714,29 @@ final class NotchWindowController {
     /// or a hair away, not from half a menu bar out. The old 160 of
     /// slack opened it for passersby (user call, 2026-07-21).
     private func collapsedZone(on screen: NSScreen) -> NSRect {
-        hoverZone(
+        // Sized from THIS screen's own notch, not the display the
+        // island currently dresses: viewModel.notchSize is the
+        // dressed display's, so every other display's door inherited
+        // the wrong width and could miss the real notch (review-caught).
+        let notch = notchMetric(of: screen)
+        return hoverZone(
             on: screen,
-            width: viewModel.notchSize.width + 116,
-            height: viewModel.notchSize.height + 12
+            width: notch.width + 116,
+            height: notch.height + 12
+        )
+    }
+
+    /// A screen's own notch, or the shared default for a notchless
+    /// one, so a door is correct on whichever display it hangs from.
+    private func notchMetric(of screen: NSScreen) -> CGSize {
+        guard screen.safeAreaInsets.top > 0,
+              let left = screen.auxiliaryTopLeftArea,
+              let right = screen.auxiliaryTopRightArea else {
+            return NotchViewModel.defaultNotchSize
+        }
+        return CGSize(
+            width: screen.frame.width - left.width - right.width,
+            height: screen.safeAreaInsets.top
         )
     }
 
@@ -721,6 +784,10 @@ private struct SliverHint: View {
             .fill(Color.black)
             .overlay(shape.strokeBorder(Theme.specularEdge, lineWidth: 1).opacity(0.75))
             .overlay(shape.strokeBorder(Theme.lipLight, lineWidth: 1))
+            // The shape's own rect, hugging the panel's top edge; the
+            // panel's extra room lets the eave and belly draw uncut.
+            .frame(width: 100, height: 13)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
 }
 

@@ -440,32 +440,57 @@ final class EventKitService: ObservableObject {
         if ["next", "next meeting", "next event", "next one"].contains(query) {
             return upcoming.first { !$0.isAllDay } ?? upcoming.first
         }
+        // A spoken time wins over a loose title match: over the week
+        // window "cancel my 3pm meeting" once matched a differently
+        // dated event named "Meeting" before the 3pm was ever checked,
+        // deleting the wrong day (review-caught). If the query carries
+        // an hour, the hour decides; the title only breaks ties.
+        if let (hour, isPM) = Self.spokenHour(in: query) {
+            let matchesHour: (EKEvent) -> Bool = { event in
+                let h = Calendar.current.component(.hour, from: event.startDate)
+                // With a meridiem said, match it exactly; "9am" must
+                // not delete a 9pm dinner. Without one, either half-day.
+                if let isPM { return h == (isPM ? (hour % 12) + 12 : hour % 12) }
+                return h % 12 == hour % 12
+            }
+            let hourHits = (upcoming.filter(matchesHour)
+                + events.filter(matchesHour))
+            // A residual title word (the "meeting" in "3pm meeting")
+            // picks among same-hour events; else the soonest.
+            let titleResidue = query
+                .replacingOccurrences(of: "at ", with: "")
+                .components(separatedBy: .decimalDigits).joined()
+                .replacingOccurrences(of: "pm", with: "")
+                .replacingOccurrences(of: "am", with: "")
+                .replacingOccurrences(of: "o'clock", with: "")
+                .trimmingCharacters(in: .whitespaces)
+            if !titleResidue.isEmpty {
+                if let refined = hourHits.first(where: {
+                    ($0.title ?? "").lowercased().contains(titleResidue)
+                }) { return refined }
+            }
+            if let hit = hourHits.first { return hit }
+        }
         let titleMatch: (EKEvent) -> Bool = { event in
             let title = (event.title ?? "").lowercased()
             return !title.isEmpty && (title.contains(query) || query.contains(title))
         }
-        if let hit = upcoming.first(where: titleMatch) ?? events.first(where: titleMatch) {
-            return hit
-        }
-        // "the 3pm": a bare hour, matched against start times.
-        let bare = query.removingPrefixes(["at "])
-        if let hour = Self.spokenHour(bare) {
-            return upcoming.first { Calendar.current.component(.hour, from: $0.startDate) % 12 == hour % 12 }
-                ?? events.first { Calendar.current.component(.hour, from: $0.startDate) % 12 == hour % 12 }
-        }
-        return nil
+        return upcoming.first(where: titleMatch) ?? events.first(where: titleMatch)
     }
 
-    /// "3", "3pm", "3 o'clock" as an hour, nil for anything wordier.
-    private static func spokenHour(_ text: String) -> Int? {
-        let cleaned = text
-            .replacingOccurrences(of: "o'clock", with: "")
-            .replacingOccurrences(of: "oclock", with: "")
-            .replacingOccurrences(of: "pm", with: "")
-            .replacingOccurrences(of: "am", with: "")
-            .trimmingCharacters(in: .whitespaces)
-        guard let hour = Int(cleaned), (1...23).contains(hour) else { return nil }
-        return hour
+    /// A bare hour and its meridiem if spoken: "3pm" -> (3, true),
+    /// "9am" -> (9, false), "the 3" or "at 15" -> (n, nil), nil when
+    /// there is no lone hour (a titled query like "standup" returns
+    /// nil so the title path handles it).
+    private static func spokenHour(in query: String) -> (hour: Int, isPM: Bool?)? {
+        let isPM: Bool? = query.contains("pm") ? true
+            : query.contains("am") ? false : nil
+        let digits = query
+            .components(separatedBy: CharacterSet.decimalDigits.inverted)
+            .filter { !$0.isEmpty }
+        guard digits.count == 1, let hour = Int(digits[0]),
+              (1...23).contains(hour) else { return nil }
+        return (hour, isPM)
     }
 
     /// Cancel one of today's events by voice. Only ever this one

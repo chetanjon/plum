@@ -109,11 +109,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let defaults = UserDefaults.standard
         guard !defaults.bool(forKey: "plum.migrated") else { return }
         let eras = [("com.cj.cove", "cove."), ("com.cj.moai", "moai.")]
+        // Skip EVERY era's prefix, not just the current one: a Cove
+        // domain still carried literal moai.* keys from its own
+        // migration, and copying them wholesale littered the plum
+        // domain with dead keys (review-caught, harmless but untidy).
+        let eraPrefixes = eras.map(\.1)
         for (domain, prefix) in eras {
             guard let old = defaults.persistentDomain(forName: domain) else { continue }
             for (key, value) in old
             where defaults.object(forKey: key) == nil
-                && !key.hasPrefix(prefix) {
+                && !eraPrefixes.contains(where: key.hasPrefix) {
                 defaults.set(value, forKey: key)
             }
             for key in ["onboarded", "lastMusicApp", "lastUpdateNudge",

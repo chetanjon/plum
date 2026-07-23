@@ -88,6 +88,12 @@ final class ActivityServer: @unchecked Sendable {
         var method: String
         var path: String
         var body: Data
+        /// A browser attaches Origin to every cross-site fetch; a curl
+        /// or a build script never does. Its mere presence marks a
+        /// request that came from a web page, which has no business
+        /// pushing pills onto the island (a site you visit could
+        /// otherwise spoof one). Mutating routes refuse it.
+        var fromBrowser: Bool
     }
 
     private static func parse(_ data: Data) -> Request? {
@@ -96,6 +102,10 @@ final class ActivityServer: @unchecked Sendable {
         let lines = head.components(separatedBy: "\r\n")
         let parts = lines.first?.components(separatedBy: " ") ?? []
         guard parts.count >= 2 else { return nil }
+        let fromBrowser = lines.contains {
+            let lower = $0.lowercased()
+            return lower.hasPrefix("origin:") || lower.hasPrefix("sec-fetch-mode:")
+        }
         // A header carries at most one value; splitting on the FIRST
         // colon and taking the tail is crash-proof where index [1] was
         // not: "Content-Length:" with an empty value once trapped and
@@ -111,10 +121,22 @@ final class ActivityServer: @unchecked Sendable {
             } ?? 0
         let body = data[headerEnd.upperBound...]
         guard body.count >= contentLength else { return nil }
-        return Request(method: parts[0], path: parts[1], body: Data(body.prefix(contentLength)))
+        return Request(
+            method: parts[0], path: parts[1],
+            body: Data(body.prefix(contentLength)), fromBrowser: fromBrowser
+        )
     }
 
     private func route(_ request: Request, on connection: NWConnection) {
+        // A web page can reach a loopback port, but it must never move
+        // the island. Reading (GET) is already walled off by the
+        // browser's own same-origin policy; the writing routes refuse
+        // anything wearing browser headers outright.
+        if request.fromBrowser, request.method != "GET" {
+            respond(connection, status: "403 Forbidden",
+                    body: #"{"ok":false,"error":"cross-origin writes refused"}"#)
+            return
+        }
         switch (request.method, request.path) {
         case ("POST", "/activity"):
             guard let object = try? JSONSerialization.jsonObject(with: request.body) as? [String: Any],

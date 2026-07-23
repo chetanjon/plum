@@ -117,6 +117,16 @@ The rules every round is built under, in the order they were paid for:
 - Texting sends over iMessage only. A number that lives on the green side isn't reachable yet; SMS relay is untested ground and stays out until it can be tested honestly.
 - Unsigned; the first open needs one Open Anyway.
 
+## Security posture
+
+The honest version, since you are running an unsigned app that can touch a lot.
+
+- **On device.** Every "ask" (voice, typed, screen reading) is answered by Apple's on-device model. Your words, your screen's text, and your clipboard never leave the Mac. There are no API keys and no cloud inference; the API-key era was deleted, not disabled.
+- **What does reach the internet, all over HTTPS:** the daily update check (GitHub, switchable off), the update download when you say yes (signed with the project's EdDSA key, so a forged update cannot install), album art for Apple Music tracks missing local art (the track's title and artist go to Apple's public iTunes Search API), favicons for sites you save (one request to each site), and whatever you do in the optional Chat tab under your own login. Nothing else.
+- **The Live status API** listens on loopback only and now refuses any request wearing browser headers, so a web page you visit cannot push or spoof a pill. Local processes still can, by design; that is the whole feature.
+- **Outbound messages** are never sent unheard: Chalant reads the exact words and recipient back to you and fires only when you say "send." The text is escaped before it touches AppleScript, so a message body can never become a command.
+- **No sandbox, and that is deliberate:** automating your music and Messages, reading the front window, snapping windows, and launching apps all require reaching outside a sandbox. The app runs with your privileges and no more. The trade you are making is trust, and the answer to trust is that the whole source is [right here](https://github.com/chetanjon/chalant), MIT, and the build is reproducible from it.
+
 ## Roadmap
 
 - Screen context shipped in 1.0.78, Messages sending in 1.0.66, self-updates in 1.0.86. What remains from the old list: a meeting brief before your next call, still earning its shape. (The menu bar countdown was pruned; the island already carries the countdown on every display, and two surfaces for one number is the kind of thing this app exists to refuse.)

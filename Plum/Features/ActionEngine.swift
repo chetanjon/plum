@@ -197,7 +197,11 @@ final class ActionEngine {
         // Dictation and plain typing both write "stop watch" as two
         // words; join them so the watch's verbs never wander to the
         // model as strangers.
-        let watch = lower.replacingOccurrences(of: "stop watch", with: "stopwatch")
+        // Bare "stop watch" means STOP the watch; blind joining made
+        // it the start verb and it answered "Running" (sweep-caught).
+        let watch = lower == "stop watch"
+            ? "stop stopwatch"
+            : lower.replacingOccurrences(of: "stop watch", with: "stopwatch")
         if ["stop stopwatch", "stop the stopwatch", "stopwatch stop",
             "pause stopwatch", "pause the stopwatch"].contains(watch) {
             guard model.stopwatch.isActive else { return "No stopwatch running." }

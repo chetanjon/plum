@@ -404,6 +404,10 @@ final class NotchWindowController {
     /// island reads as not installed (user, 2026-07-23). The sliver
     /// is a handle, never a display; "Show edge when idle" turns it
     /// off for the total invisibility R96 chose.
+    /// The bead's room: the panel that hosts the resting hint on a
+    /// notchless display, and, since the uninvited-bloom fix, also the
+    /// exact size of that display's hover door.
+    static let sliverRoom = CGSize(width: 116, height: 20)
     private var sliverPanels: [NSPanel] = []
     /// Defaults change constantly (the voice log alone writes every
     /// utterance); only a real difference rebuilds the panels.
@@ -441,7 +445,7 @@ final class NotchWindowController {
             // are not clipped into a squared lozenge (review-caught;
             // the source of three rounds of "it looks wrong"). The
             // bead is centered inside this room by SliverHint.
-            let width: CGFloat = 116, height: CGFloat = 20
+            let width = Self.sliverRoom.width, height = Self.sliverRoom.height
             let frame = NSRect(
                 x: screen.frame.midX - width / 2,
                 y: screen.frame.maxY - height,
@@ -714,6 +718,20 @@ final class NotchWindowController {
     /// or a hair away, not from half a menu bar out. The old 160 of
     /// slack opened it for passersby (user call, 2026-07-21).
     private func collapsedZone(on screen: NSScreen) -> NSRect {
+        // On a notchless display the door is exactly the bead's room:
+        // the island opens only when the cursor touches the thing the
+        // eye can see. The old notch-wide invisible strip kept catching
+        // runs at browser tabs on maximized windows and blooming
+        // uninvited (user, 2026-07-23). With the bead switched off the
+        // same small door remains, just invisible; R96's law that a
+        // door always exists survives at bead scale.
+        guard screen.safeAreaInsets.top > 0 else {
+            return hoverZone(
+                on: screen,
+                width: Self.sliverRoom.width,
+                height: Self.sliverRoom.height
+            )
+        }
         // Sized from THIS screen's own notch, not the display the
         // island currently dresses: viewModel.notchSize is the
         // dressed display's, so every other display's door inherited

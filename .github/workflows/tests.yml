@@ -17,8 +17,8 @@ jobs:
       - name: Run unit tests
         run: >
           xcodebuild test
-          -project Cove.xcodeproj
-          -scheme Cove
+          -project Plum.xcodeproj
+          -scheme Plum
           -destination 'platform=macOS'
           CODE_SIGNING_ALLOWED=NO
           CODE_SIGN_IDENTITY=""

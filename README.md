@@ -1,20 +1,20 @@
-# Cove
+# Plum
 
-The AI-native dynamic island for Mac. Incumbents treat the notch as a widget shelf. Cove's rule: **everything you put on the island can be asked about.**
+The AI-native dynamic island for Mac. Incumbents treat the notch as a widget shelf. Plum's rule: **everything you put on the island can be asked about.**
 
-The name: a cove is a sheltered notch in a coastline, calm water tucked into rock. Yours is tucked into the bezel. Things drift in, wait quietly, and answer when you ask. (When the day is empty, it has always said so in its own words: clear water.)
+The name: a plum is a small dark rounded thing that hangs just where you can reach it. So is the pill at the top of your screen. A little plum on your Apple; hold it and it answers.
 
-<p align="center"><img src="docs/assets/cove-demo.gif" width="560" alt="The island glances at what is playing, then opens into media controls, ambience, and focus."></p>
+<p align="center"><img src="docs/assets/plum-demo.gif" width="560" alt="The island glances at what is playing, then opens into media controls, ambience, and focus."></p>
 
 ## Download
 
-[**Download Cove.zip**](https://github.com/chetanjon/cove/releases/latest/download/Cove.zip), always the newest build. Apple Silicon, macOS 14+, free, MIT-licensed. (Release notes live on the [releases page](https://github.com/chetanjon/cove/releases/latest).) Or through Homebrew:
+[**Download Plum.zip**](https://github.com/chetanjon/plum/releases/latest/download/Plum.zip), always the newest build. Apple Silicon, macOS 14+, free, MIT-licensed. (Release notes live on the [releases page](https://github.com/chetanjon/plum/releases/latest).) Or through Homebrew:
 
 ```bash
-brew install --cask chetanjon/cove/cove
+brew install --cask chetanjon/plum/plum
 ```
 
-Unzip, drag Cove to Applications, open it. First open: macOS will ask once. System Settings, Privacy and Security, Open Anyway. Cove is unsigned because it is free and independent. After that, updates take care of themselves: the island mentions a new version once, and one click installs it in place and relaunches (Sparkle, with updates signed by the project's own key; no browser, no re-download dance). Speech recognition is Apple standard dictation, there are no API keys anywhere, and beyond the optional Chat tab, Cove asks the internet only for: whether a newer version exists (a daily check, switchable off in Settings), the update itself when you say yes, album art for what you play, and favicons for sites you save, each fetched from its own source, never through a third-party service. The Live status API listens on localhost only; nothing it hears leaves the machine.
+Unzip, drag Plum to Applications, open it. First open: macOS will ask once. System Settings, Privacy and Security, Open Anyway. Plum is unsigned because it is free and independent. After that, updates take care of themselves: the island mentions a new version once, and one click installs it in place and relaunches (Sparkle, with updates signed by the project's own key; no browser, no re-download dance). Speech recognition is Apple standard dictation, there are no API keys anywhere, and beyond the optional Chat tab, Plum asks the internet only for: whether a newer version exists (a daily check, switchable off in Settings), the update itself when you say yes, album art for what you play, and favicons for sites you save, each fetched from its own source, never through a third-party service. The Live status API listens on localhost only; nothing it hears leaves the machine.
 
 ## v1 feature set
 
@@ -55,7 +55,7 @@ Unzip, drag Cove to Applications, open it. First open: macOS will ask once. Syst
 
 **Live status** (the open door)
 - Anything on your Mac can put a status pill on the island: `curl localhost:4242/activity -d '{"id":"deploy","title":"Deploying","state":"working"}'`. States: `working`, `needs-input`, `done`, `failed`, `clear`; `GET /activities` lists, `DELETE /activity/<id>` clears. Loopback only, never leaves the machine.
-- `scripts/cove` wraps it for humans and hooks: `cove working "Deploying"`, `cove needs-input "Claude wants you"`, `cove done "Build finished"`, `cove clear`. Copy it into your PATH if you like it.
+- `scripts/plum` wraps it for humans and hooks: `plum working "Deploying"`, `plum needs-input "Claude wants you"`, `plum done "Build finished"`, `plum clear`. Copy it into your PATH if you like it.
 - Made for the things that have no home: Claude Code hooks, build scripts, deploys, renders, long downloads. The open island lists them attention-first (needs-input wears the accent); the closed pill never grows for any of it, and finished things fade on their own.
 - Claude Code wears it as a full lifecycle, four hooks sharing one id in `~/.claude/settings.json` (merge alongside any hooks you already run): a submitted prompt marks it working, a notification means it wants you, Stop says replied and fades on its own, and SessionEnd takes the pill down so an ended session never leaves "wants you" on the glass.
 
@@ -71,7 +71,7 @@ Unzip, drag Cove to Applications, open it. First open: macOS will ask once. Syst
 **Chat** (bring your own subscription)
 - A small built-in browser under the notch pointing at Claude, ChatGPT, or Gemini; pick the service in Settings.
 - You sign in with your own account, once; nothing is scraped, proxied, or automated, and no API key is involved.
-- Cove is not affiliated with or endorsed by Anthropic, OpenAI, or Google.
+- Plum is not affiliated with or endorsed by Anthropic, OpenAI, or Google.
 
 **Deliberately cut:** webcam mirror, notes-as-panel, wallpapers, widget packs. (Agent monitoring was cut in v1 and un-cut in 1.0.63; the world filled with agents.)
 
@@ -85,20 +85,20 @@ Needs macOS 14+ and Xcode installed.
 
 ```bash
 brew install xcodegen
-cd cove
+cd plum
 xcodegen
-open Cove.xcodeproj
+open Plum.xcodeproj
 ```
 
-In Xcode: select your personal team under Signing & Capabilities, then hit Run. `xcodebuild test -scheme Cove` runs the unit suite (the parsing rules, version comparator, and session grammar that were each paid for live).
+In Xcode: select your personal team under Signing & Capabilities, then hit Run. `xcodebuild test -scheme Plum` runs the unit suite (the parsing rules, version comparator, and session grammar that were each paid for live).
 
-First music control triggers a macOS Automation permission prompt (Cove → Spotify/Music). Approve it once.
+First music control triggers a macOS Automation permission prompt (Plum → Spotify/Music). Approve it once.
 
 ### Or let Claude Code do it
 
 Open this folder in Claude Code and paste:
 
-> Generate the Xcode project with xcodegen, build the Cove scheme, and fix any compile errors you hit, then run it. Do not change the design, architecture, feature scope, or the Design law section of the README. Test each verb from the README v1 feature list and fix what fails. For the texting verb, stage and drop only: never say send, and never send a message to anyone.
+> Generate the Xcode project with xcodegen, build the Plum scheme, and fix any compile errors you hit, then run it. Do not change the design, architecture, feature scope, or the Design law section of the README. Test each verb from the README v1 feature list and fix what fails. For the texting verb, stage and drop only: never say send, and never send a message to anyone.
 
 ## Architecture (30 seconds)
 
@@ -130,7 +130,7 @@ The rules every round is built under, in the order they were paid for:
 ## Roadmap
 
 - **v2:** meeting brief before your next call, screen context. (Messages sending shipped in 1.0.66; menu bar countdown was pruned, the island already carries the countdown on every display, and two surfaces for one number is the kind of thing this app exists to refuse.)
-- Distribution: the Homebrew cask is live (`brew install --cask chetanjon/cove/cove`); a notarized build if enrollment ever earns its $99. The landing page is [live](https://chetanjon.github.io/cove/).
+- Distribution: the Homebrew cask is live (`brew install --cask chetanjon/plum/plum`); a notarized build if enrollment ever earns its $99. The landing page is [live](https://chetanjon.github.io/plum/).
 
 ## Audio attributions
 

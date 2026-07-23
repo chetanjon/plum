@@ -1,0 +1,38 @@
+#!/bin/bash
+# The open door, one word at a time. Talks to the Plum island's
+# localhost activity API (see README, Live status).
+#
+#   plum working  "Deploying api"        [id]
+#   plum needs-input "Claude wants you"  [id]
+#   plum done     "Build finished"       [id]
+#   plum failed   "Tests broke"          [id]
+#   plum clear    [id]
+#   plum list
+#
+# The id defaults to "cli"; give one to run several statuses at once.
+set -euo pipefail
+PORT="${PLUM_PORT:-4242}"
+BASE="http://localhost:$PORT"
+
+case "${1:-}" in
+  working|needs-input|done|failed)
+    STATE="$1"
+    TITLE="${2:?usage: plum $1 \"title\" [id]}"
+    ID="${3:-cli}"
+    curl -sf "$BASE/activity" -d "{\"id\":\"$ID\",\"title\":\"$TITLE\",\"state\":\"$STATE\"}" >/dev/null
+    echo "on the island: [$STATE] $TITLE"
+    ;;
+  clear)
+    ID="${2:-cli}"
+    curl -sf -X DELETE "$BASE/activity/$ID" >/dev/null
+    echo "cleared: $ID"
+    ;;
+  list)
+    curl -sf "$BASE/activities"
+    echo
+    ;;
+  *)
+    sed -n '2,13p' "$0"
+    exit 1
+    ;;
+esac

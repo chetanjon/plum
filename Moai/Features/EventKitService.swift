@@ -150,6 +150,29 @@ final class EventKitService: ObservableObject {
 
     // MARK: - Upcoming-event glance
 
+    /// The meeting "join" should reach for: one already running wins
+    /// (a late join is the verb's whole use), else today's next one
+    /// carrying a link. Fetches on its own, like agenda: saying
+    /// "join" IS the ask, so the Today block's privacy gate (which
+    /// governs the ambient glance cache) does not apply here.
+    func joinableEvent(at now: Date = Date()) async -> DayEvent? {
+        guard await ensureEvents() else { return nil }
+        let calendar = Calendar.current
+        guard let dayEnd = calendar.date(
+            byAdding: .day, value: 1, to: calendar.startOfDay(for: now)
+        ) else { return nil }
+        let predicate = store.predicateForEvents(
+            withStart: now, end: dayEnd, calendars: nil
+        )
+        let linked = store.events(matching: predicate)
+            .map(DayEvent.init(ek:))
+            .filter { $0.joinURL != nil && !$0.isAllDay && $0.end > now }
+        if let running = linked.first(where: { $0.start <= now }) {
+            return running
+        }
+        return linked.filter { $0.start > now }.min { $0.start < $1.start }
+    }
+
     /// Keep `nextEvent` current: a slow timer for the passage of time,
     /// plus the store's change notification for edits made elsewhere.
     func startGlanceTicker() {

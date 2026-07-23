@@ -99,6 +99,17 @@ final class ActionEngine {
             return model.voiceLogRendered
         }
 
+        // One word into the meeting: the Today row chip's spoken twin.
+        if ["join", "join meeting", "join the meeting", "join my meeting",
+            "join call", "join the call", "join my call"].contains(lower) {
+            guard let event = await model.events.joinableEvent(),
+                  let url = event.joinURL else {
+                return "Nothing on the calendar to join. A meeting needs a link I recognize."
+            }
+            NSWorkspace.shared.open(url)
+            return "Joining \(event.title)."
+        }
+
         // The island's own changelog, read from the latest release.
         if ["what's new", "whats new", "what is new", "changelog",
             "what changed", "release notes"].contains(lower) {
@@ -626,7 +637,7 @@ final class ActionEngine {
     /// vocabulary the intent bridge translates loose phrasings into.
     static let cheatSheet = """
     remind me to call amma at 6 · schedule lunch friday at 1
-    what's next · agenda · what's due · done with the thing
+    what's next · agenda · what's due · done with the thing · join
     cancel my 3pm · move standup to 4 · undo
     focus 25 · timer 10 · stopwatch · stop focus · rain · fire · cafe · quiet
     play · pause · next · open figma · quit slack

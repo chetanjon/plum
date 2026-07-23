@@ -297,6 +297,18 @@ final class NotchViewModel: ObservableObject {
                     UserDefaults.standard.set(bits.joined(separator: " | "), forKey: "musicDebug")
                     return
                 }
+                // "debug join" resolves what the join verb would open
+                // without opening it; read com.cj.moai joinDebug.
+                if text == "debug join" {
+                    let event = await self.events.joinableEvent()
+                    UserDefaults.standard.set(
+                        event.map {
+                            "\($0.title) | \($0.joinURL?.absoluteString ?? "-") | starts \($0.start)"
+                        } ?? "none",
+                        forKey: "joinDebug"
+                    )
+                    return
+                }
                 // "debug goadd" opens the shortcut add flow for
                 // screenshots; the field states are view-local.
                 if text == "debug goadd" {

@@ -349,12 +349,10 @@ struct PressableStyle: ButtonStyle {
 /// around the icon, a tint lift and faint halo on hover, and a press
 /// sink. Every bare-glyph control in the app routes through this.
 
-/// A rounded quadrilateral: each corner cut back by `r` and bridged
-/// with a quad curve. Used for the mark's tapered body.
-private func roundedQuad(
-    _ a: CGPoint, _ b: CGPoint, _ c: CGPoint, _ d: CGPoint, r: CGFloat
-) -> Path {
-    let pts = [a, b, c, d]
+/// A rounded quadrilateral: each corner cut back by its own radius
+/// and bridged with a quad curve. Used for the mark's tapered body,
+/// crisp at the top, rounder at the bottom.
+private func roundedQuad(_ pts: [CGPoint], radii: [CGFloat]) -> Path {
     var path = Path()
     func unit(_ from: CGPoint, _ to: CGPoint) -> CGPoint {
         let dx = to.x - from.x, dy = to.y - from.y
@@ -363,6 +361,7 @@ private func roundedQuad(
     }
     for i in 0..<4 {
         let cur = pts[i], prev = pts[(i + 3) % 4], next = pts[(i + 1) % 4]
+        let r = radii[i]
         let up = unit(cur, prev), un = unit(cur, next)
         let p1 = CGPoint(x: cur.x + up.x * r, y: cur.y + up.y * r)
         let p2 = CGPoint(x: cur.x + un.x * r, y: cur.y + un.y * r)
@@ -373,31 +372,29 @@ private func roundedQuad(
     return path
 }
 
-/// The house mark: the little watcher. A rounded bar floats above a
-/// tapered body with one round eye; "it watches so you don't have
-/// to." No horizontal capsule, no knob, so it never reads as a
-/// toggle. Rendered with an even-odd fill so the eye stays open.
+/// The house mark: the little watcher (brand v0.3). A wide rounded
+/// bar floats above a crisp tapered bucket with one low eye; "it
+/// watches so you don't have to." Geometry in units of `u`, anchored
+/// at the bar's top edge, identical to the app icon and the menu bar
+/// glyph. Even-odd fill keeps the eye open.
 struct ChalantMarkShape: Shape {
     func path(in rect: CGRect) -> Path {
         let d = min(rect.width, rect.height)
-        let scale = d * 1.34
+        let u = 0.9 * d / 0.52
         let cx = rect.midX
-        let top = rect.midY - 0.33 * scale
+        let top = rect.midY - 0.26 * u
         var p = Path()
-        let pw = 0.52 * scale, ph = 0.135 * scale
         p.addRoundedRect(
-            in: CGRect(x: cx - pw / 2, y: top, width: pw, height: ph),
-            cornerSize: CGSize(width: ph / 2, height: ph / 2)
+            in: CGRect(x: cx - 0.22 * u, y: top, width: 0.44 * u, height: 0.11 * u),
+            cornerSize: CGSize(width: 0.055 * u, height: 0.055 * u)
         )
-        let bodyTop = top + 0.20 * scale, bodyBot = top + 0.66 * scale
-        let tw = 0.60 * scale, bw = 0.46 * scale
-        p.addPath(roundedQuad(
-            CGPoint(x: cx - tw / 2, y: bodyTop), CGPoint(x: cx + tw / 2, y: bodyTop),
-            CGPoint(x: cx + bw / 2, y: bodyBot), CGPoint(x: cx - bw / 2, y: bodyBot),
-            r: 0.06 * scale
-        ))
-        let er = 0.085 * scale, ecy = top + 0.42 * scale
-        p.addEllipse(in: CGRect(x: cx - er, y: ecy - er, width: er * 2, height: er * 2))
+        let bt = top + 0.18 * u, bb = top + 0.52 * u
+        p.addPath(roundedQuad([
+            CGPoint(x: cx - 0.26 * u, y: bt), CGPoint(x: cx + 0.26 * u, y: bt),
+            CGPoint(x: cx + 0.19 * u, y: bb), CGPoint(x: cx - 0.19 * u, y: bb),
+        ], radii: [0.035 * u, 0.035 * u, 0.06 * u, 0.06 * u]))
+        let er = 0.062 * u
+        p.addEllipse(in: CGRect(x: cx - er, y: top + 0.405 * u - er, width: er * 2, height: er * 2))
         return p
     }
 }

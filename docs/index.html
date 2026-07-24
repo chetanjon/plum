@@ -222,6 +222,23 @@
 
   /* ---- The honest note ---- */
 
+  .film {
+    width: 100%;
+    border-top: 1px solid var(--hair);
+    padding: 56px 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 18px;
+  }
+
+  .film video {
+    display: block;
+    width: min(560px, 92vw);
+    border-radius: 18px;
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.07);
+  }
+
   .note {
     width: 100%;
     border-top: 1px solid var(--hair);
@@ -231,7 +248,7 @@
     gap: 10px;
   }
 
-  .note h2 {
+  .note h2, .film h2 {
     font-size: 11px;
     font-weight: 600;
     letter-spacing: 0.22em;
@@ -347,6 +364,13 @@
       <dd>Anything on your Mac can raise a status pill: builds, deploys, agents. Loopback only.</dd>
     </div>
   </dl>
+
+  <section class="film">
+    <h2>The tour</h2>
+    <video src="assets/chalant-film.mp4" poster="assets/chalant-film-poster.jpg"
+           controls playsinline preload="none"
+           aria-label="Half a minute with Chalant: the island opens, every pane in turn, then a spoken reminder lands in Reminders."></video>
+  </section>
 
   <section class="note">
     <h2>First open</h2>

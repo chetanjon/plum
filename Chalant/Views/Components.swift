@@ -485,9 +485,18 @@ struct GlyphImage: View {
 
     var body: some View {
         if symbol == "chalant.mark" {
-            ChalantMarkShape()
-                .fill(style: FillStyle(eoFill: true))
-                .frame(width: scale.rawValue + 2, height: scale.rawValue + 2)
+            // A bare shape carries no text baseline, so rows aligned
+            // by .firstTextBaseline hoist it above its neighbors. An
+            // unseen symbol donates its frame and baseline, and the
+            // mark rides the same grid as the glyphs beside it.
+            Image(systemName: "circle.fill")
+                .font(Theme.Fonts.icon(scale, weight: weight))
+                .hidden()
+                .overlay(
+                    ChalantMarkShape()
+                        .fill(style: FillStyle(eoFill: true))
+                        .frame(width: scale.rawValue + 2, height: scale.rawValue + 2)
+                )
         } else {
             Image(systemName: symbol)
                 .font(Theme.Fonts.icon(scale, weight: weight))
